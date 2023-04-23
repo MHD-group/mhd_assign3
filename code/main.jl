@@ -15,7 +15,20 @@ using LaTeXStrings
 matplotlib.rc("font", size=14)
 
 const γ = 1.4
+
 # %%
+
+function minmod(a::AbstractFloat, b::AbstractFloat)::AbstractFloat
+	if sign(a) * sign(b) > 0
+		if abs(a) < abs(b)
+			return a
+		end
+		return b
+	end
+	return 0
+end
+# %%
+
 
 function w2U(w::Vector)::Vector
 	u=similar(w)
@@ -29,7 +42,7 @@ function U2L(U::Vector)::Matrix
 	ρ = U[1]
 	u = U[2]
 	p = U[3]
-	a = γ*p/ρ
+	a = sqrt(γ*p/ρ)
 	L = [ 0  -ρ*a 1;
 		  a^2 0  -1;
 		  0  ρ*a  1]
@@ -39,40 +52,85 @@ function U2R(U::Vector)::Matrix
 	ρ = U[1]
 	u = U[2]
 	p = U[3]
-	a = γ*p/ρ
+	a = sqrt(γ*p/ρ)
 	R = [ 0.5/a^2  1/a^2 0.5/a^2;
 		 -0.5/(ρ*a)  0    0.5/(ρ*a);
 		  0.5        0     0.5  ]
+end
+
+function w2L(w::Vector)::Matrix
+	U = w |> w2U
+	ρ = w[1]
+	m = w[2]
+	u = U[2]
+	E = w[3]
+	p = U[3]
+	a = sqrt(γ*p/ρ)
+	H = a^2/(γ-1) + 0.5u^2
+	L = 0.5*(γ-1)/a^2 * [ 0.5u*(u+2*a/(γ-1))    -(u+a/(γ-1))    1;
+						  2*(H-u^2)                2u          -2;
+						  0.5u*(u-2*a/(γ-1))    -(u-a/(γ-1))    1]
+end
+
+function w2R(w::Vector)::Matrix
+	U = w |> w2U
+	ρ = w[1]
+	m = w[2]
+	u = U[2]
+	E = w[3]
+	p = U[3]
+	a = sqrt(γ*p/ρ)
+	H = a^2/(γ-1) + 0.5u^2
+	R = [ 1        1        1  ;
+		 u-a       u        u+a;
+		 H-u*a    0.5u^2   H+u*a]
 end
 
 function U2λ(U::Vector)::Vector
 	ρ = U[1]
 	u = U[2]
 	p = U[3]
-	a = γ*p/ρ
+	a = sqrt(γ*p/ρ)
 	λ = [u-a, u, u+a]
 end
 
-function upwind(UP::Matrix, U::Matrix, C::AbstractFloat)
-	l=104
-	sum(U .== NaN)
-	U[:, 104]
-	c.u[:, 104]
+w2λ(w::Vector)::Vector = w |> w2U |> U2λ
 
+function upwind_non(UP::Matrix, U::Matrix, C::AbstractFloat)
+	# l=104
+	# sum(U .== NaN)
+	# U[:, 104]
+	# c.u[:, 104]
 	for l in 2:size(U, 2)-1
-	λ=U2λ(U[:, l])
-	s=@. Int(sign(λ))
-	R = U2R(U[:, l])
-	L = U2L(U[:, l])
-	D=similar(U[:, l])
-	for i in 1:3
-		D[i] = U[i, l] - U[i, l-s[i]]
+		λ= U[:, l] |> U2λ
+		s=@. Int(sign(λ))
+		R = U2R(U[:, l])
+		L = U2L(U[:, l])
+		D=similar(U[:, l])
+		for i in 1:3
+			D[i] = U[i, l] - U[i, l-s[i]]
+		end
+		Λ= abs.(λ) |> diagm
+		UP[:, l] .= U[:, l] - C * R*Λ*L * D
 	end
-	Λ= abs.(λ) |> diagm
-	UP[:, l] .= U[:, l] - C * R*Λ*L * D
-	end
-
 end
+
+function upwind(UP::Matrix, U::Matrix, C::AbstractFloat)
+	for l in 2:size(U, 2)-1
+		λ= U[:, l] |> w2λ
+		s=@. Int(sign(λ))
+		R = w2R(U[:, l])
+		L = w2L(U[:, l])
+		D=similar(U[:, l])
+		for i in 1:3
+			D[i] = U[i, l] - U[i, l-s[i]]
+		end
+		Λ= abs.(λ) |> diagm
+		UP[:, l] .= U[:, l] - C * R*Λ*L * D
+	end
+end
+
+# %%
 
 function init1(x::AbstractVector, u::Matrix)
 	w = [0.445, 0.311, 8.928]
@@ -81,12 +139,16 @@ function init1(x::AbstractVector, u::Matrix)
 	u[:, x .>= 0 ] .= w2U(w)
 end
 
+function init0(x::AbstractVector, u::Matrix)
+	u[:, x .< 0] .= [0.445, 0.311, 8.928]
+	u[:, x .>= 0 ] .= [0.5, 0, 1.4275]
+end
 
 struct Cells
 	x::AbstractVector{Float64}
 	u::Matrix{Float64} # u^n
 	up::Matrix{Float64} # u^(n+1) ; u plus
-	function Cells(b::Float64=-1.0, e::Float64=1.0; step::Float64=0.01, init::Function=init1)
+	function Cells(b::Float64=-1.0, e::Float64=1.0; step::Float64=0.01, init::Function=init0)
 	x = range(b, e, step=step)
 	u=zeros(3,length(x))
 	init1(x, u)
@@ -108,18 +170,7 @@ function update!(c::Cells, flg::Bool, f::Function, C::AbstractFloat)
 	f(UP, U, C)
 	return !flg
 end
-update!(c::Cells, flg::Bool, f::Function) = update!(c, flg, f, 0.05)
-
-function minmod(a::AbstractFloat, b::AbstractFloat)::AbstractFloat
-	if sign(a) * sign(b) > 0
-		if abs(a) < abs(b)
-			return a
-		end
-		return b
-	end
-	return 0
-end
-
+update!(c::Cells, flg::Bool, f::Function) = update!(c, flg, f, 0.5)
 
 # %%
 C = 0.5
@@ -128,61 +179,24 @@ C = 0.5
 Δt =  C * Δx
 
 
-function upwind(up::Matrix, u::Matrix, C::AbstractFloat)
-	for l in eachindex(u)
-		up[l] = u[l] - C * (u[l] -u[l-1])  # u_j^{n+1} = u_j^n - Δt/Δx * ( u_j^n - u_{j-1}^n )
-	end
-end
-
-
-function upwind2(up::CircularVector, u::CircularVector, C::AbstractFloat)
-	for i in eachindex(u)
-		up[i] = u[i] - 0.5C * (u[i]^2 -u[i-1]^2)  # u_j^{n+1} = u_j^n - Δt/Δx * ( u_j^n - u_{j-1}^n )
-	end
-end
-
-function lax_wendroff(up::CircularVector, u::CircularVector, C::AbstractFloat)
-	for j in eachindex(u)
-		up[j] = u[j] - 0.5 * C * ( u[j+1] - u[j-1] ) + 0.5 * C^2 * ( u[j+1] - 2u[j] + u[j-1] )
-	end
-end
-
-function limiter(up::CircularVector, u::CircularVector, C::AbstractFloat)
-	for i in eachindex(u)
-		up[i] = u[i] - C * (u[i] - u[i-1]) - 0.5 * C * (1 - C) *
-			( minmod(u[i]-u[i-1], u[i+1]-u[i]) - minmod(u[i-1]-u[i-2], u[i]-u[i-1]) )
-	end
-end
-
-function limiter2(up::CircularVector, un::CircularVector, C::AbstractFloat)
-	u = @. 0.5un^2
-	for i in eachindex(u)
-		up[i] = un[i] - C * (u[i] - u[i-1]) - 0.5 * C * (1 - C) *
-			( minmod(u[i]-u[i-1], u[i+1]-u[i]) - minmod(u[i-1]-u[i-2], u[i]-u[i-1]) )
-	end
-end
-
-
-
-# %%
-
-
 
 # %%
 function problem1(C::AbstractFloat, f::Function, title::String; Δx::AbstractFloat=0.007)
-	t=0.14
+
+	t=0.3
+	C = 0.4
+	Δx= 2/261
 	Δt = Δx * C
 	f = upwind
-	c=Cells()
+	c=Cells(step=Δx, init=init0)
 	plt.plot(c.x, c.u[1, :], "-.k", linewidth=0.2, label="init")
-	# plt.show()
-
-    plt.plot(c.x, circshift(c.u, round(Int, t*C/Δt)), "-g", linewidth=1, alpha=0.4)
-
 	flg=true # flag
-	for _ = 1:10
+	for _ = 1:round(Int, t/Δt)
 		flg=update!(c, flg, f, C)
 	end
+	U=current(c, flg)
+	plt.plot(c.x, U[1, :], "-.b", linewidth=1)
+	plt.show()
 
 	plt.plot(c.x, c.u[1, :], "-.k", linewidth=0.2, label="init")
 	plt.show()
@@ -194,30 +208,7 @@ function problem1(C::AbstractFloat, f::Function, title::String; Δx::AbstractFlo
 end
 
 # %%
-function problem2(t::AbstractFloat)
-	C = 0.5
-	Δt =  C * Δx
-	f = upwind
-	matplotlib.rc("font", size=13)
-	plt.figure(figsize=(10,2.5))
-	c=Cells(step=Δx, init=init2)
-	plt.plot(c.x, c.u, "-.k", linewidth=0.2, label="init")
-    # plt.plot(c.x, circshift(c.u, round(Int, t*C/Δt)), "-g", linewidth=1, alpha=0.4)
 
-	flg=true # flag
-	for _ = 1:round(Int, t/Δt)
-		flg=update!(c, flg, f, C)
-	end
-
-	plt.title("time = "*string(t)*", "*"Minmod")
-	# plt.plot(c.x, c.up, linestyle="dashed", linewidth=0.4, marker="o", markeredgewidth=0.4, markersize=4,  markerfacecolor="none", label="up")
-	plt.plot(c.x, c.up, linestyle="dashed", linewidth=0.4, color="navy", marker="o", markeredgecolor="purple", markeredgewidth=0.4, markersize=4,  markerfacecolor="none", label="up")
-
-	plt.savefig("../figures/problem2_"*string(f)*string(t)*".pdf", bbox_inches="tight")
-	plt.show()
-end
-
-# %%
 function main()
 	problem1(0.05, upwind, "Upwind")
 	problem1(0.5, upwind, "Upwind")
