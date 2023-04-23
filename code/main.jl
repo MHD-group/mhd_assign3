@@ -12,7 +12,7 @@ using LaTeXStrings
 @pyimport matplotlib.pyplot as plt
 @pyimport matplotlib
 # https://stackoverflow.com/questions/3899980/how-to-change-the-font-size-on-a-matplotlib-plot
-matplotlib.rc("font", size=14)
+matplotlib.rc("font", size=10)
 
 const γ = 1.4
 
@@ -115,18 +115,18 @@ function upwind_non(UP::Matrix, U::Matrix, C::AbstractFloat)
 	end
 end
 
-function upwind(UP::Matrix, U::Matrix, C::AbstractFloat)
-	for l in 2:size(U, 2)-1
-		λ= U[:, l] |> w2λ
+function upwind(wp::Matrix, w::Matrix, C::AbstractFloat)
+	for l in 2:size(w, 2)-1
+		λ= w[:, l] |> w2λ
 		s=@. Int(sign(λ))
-		R = w2R(U[:, l])
-		L = w2L(U[:, l])
-		D=similar(U[:, l])
+		R = w2R(w[:, l])
+		L = w2L(w[:, l])
+		D=similar(w[:, l])
 		for i in 1:3
-			D[i] = U[i, l] - U[i, l-s[i]]
+			D[i] = w[i, l] - w[i, l-s[i]]
 		end
 		Λ= abs.(λ) |> diagm
-		UP[:, l] .= U[:, l] - C * R*Λ*L * D
+		wp[:, l] .= w[:, l] - C * R*Λ*L * D
 	end
 end
 
@@ -151,7 +151,7 @@ struct Cells
 	function Cells(b::Float64=-1.0, e::Float64=1.0; step::Float64=0.01, init::Function=init0)
 	x = range(b, e, step=step)
 	u=zeros(3,length(x))
-	init1(x, u)
+	init(x, u)
 	up=deepcopy(u)
 	new(x, u , up)
 	end
@@ -182,8 +182,7 @@ C = 0.5
 
 # %%
 function problem1(C::AbstractFloat, f::Function, title::String; Δx::AbstractFloat=0.007)
-
-	t=0.3
+	t=0.6
 	C = 0.4
 	Δx= 2/261
 	Δt = Δx * C
@@ -191,8 +190,13 @@ function problem1(C::AbstractFloat, f::Function, title::String; Δx::AbstractFlo
 	c=Cells(step=Δx, init=init0)
 	plt.plot(c.x, c.u[1, :], "-.k", linewidth=0.2, label="init")
 	flg=true # flag
-	for _ = 1:round(Int, t/Δt)
-		flg=update!(c, flg, f, C)
+	for i = 1:round(t/Δt)
+		try 
+			flg=update!(c, flg, f, C)
+		catch
+			println(i)
+			break
+		end
 	end
 	U=current(c, flg)
 	plt.plot(c.x, U[1, :], "-.b", linewidth=1)
