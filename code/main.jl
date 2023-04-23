@@ -72,6 +72,26 @@ function w2L(w::Vector)::Matrix
 						  0.5u*(u-2*a/(γ-1))    -(u-a/(γ-1))    1]
 end
 
+function w2A(w::Vector)::Matrix
+	U = w |> w2U
+	ρ = w[1]
+	m = w[2]
+	u = U[2]
+	E = w[3]
+	A = [ 0                         1                0 ;
+		 0.5u^2*(γ-3)             -u*(γ-3)          γ-1;
+		 (γ-1)*u^3-γ*u/ρ*E    γ/ρ*E-1.5*(γ-1)*u^2   γ*u]
+end
+
+
+function w2F(w::Vector)::Vector
+	U = w |> w2U
+	u = U[2]
+	p = U[3]
+	F = u*w .+ [0, p, p*u]
+end
+
+
 function w2R(w::Vector)::Matrix
 	U = w |> w2U
 	ρ = w[1]
@@ -113,6 +133,21 @@ function upwind_non(UP::Matrix, U::Matrix, C::AbstractFloat)
 		Λ= abs.(λ) |> diagm
 		UP[:, l] .= U[:, l] - C * R*Λ*L * D
 	end
+end
+
+function lax_wendroff(wp::Matrix, w::Matrix, C::AbstractFloat)
+for l in 2:size(w, 2)-1
+	Am = 0.5*(w[:, l]+w[:, l-1]) |> w2A
+	Ap = 0.5*(w[:, l]+w[:, l+1]) |> w2A
+	Fm = w[:, l-1] |> w2F
+	Fp = w[:, l+1] |> w2F
+	F = w[:, l] |> w2F
+	wp[:, l] .= w[:, l] - 0.5C*(Fp - Fm) +
+	0.5C^2*(Ap*(Fp-F) - Am * (F-Fm))
+	# B = 0.5C*(u[l] + u[l-1])
+	# up[l] = u[l] - B *  (u[l] - u[l-1]) - 0.5 * B * (1 - B) *
+	# 	( minmod(u[l]-u[l-1], u[l+1]-u[l]) - minmod(u[l-1]-u[l-2], u[l]-u[l-1]) )
+end
 end
 
 function upwind(wp::Matrix, w::Matrix, C::AbstractFloat)
@@ -182,33 +217,30 @@ C = 0.5
 
 # %%
 function problem1(C::AbstractFloat, f::Function, title::String; Δx::AbstractFloat=0.007)
-	t=0.6
-	C = 0.4
+
+	title = L"$m$"
+	t=0.14
+	C = 0.1
 	Δx= 2/261
 	Δt = Δx * C
-	f = upwind
+	f = lax_wendroff
 	c=Cells(step=Δx, init=init0)
 	plt.plot(c.x, c.u[1, :], "-.k", linewidth=0.2, label="init")
 	flg=true # flag
 	for i = 1:round(t/Δt)
-		try 
-			flg=update!(c, flg, f, C)
-		catch
-			println(i)
-			break
-		end
+		flg=update!(c, flg, f, C)
 	end
-	U=current(c, flg)
-	plt.plot(c.x, U[1, :], "-.b", linewidth=1)
+	w=current(c, flg)
+	plt.plot(c.x, w[2, :], "-.b", linewidth=1)
+
+	# plt.plot(c.x, c.u[1, :], "-.k", linewidth=0.2, label="init")
+	# plt.show()
+
+	plt.title("time = "*string(t)*", "*"C = "*string(C)*", "* title )
+	# plt.plot(c.x, c.up, linestyle="dashed", linewidth=0.4, marker="o", markeredgewidth=0.4, markersize=4,  markerfacecolor="none", label="up")
+	plt.savefig("../figures/problem1_"*string(f)*string(C)*title*".pdf", bbox_inches="tight")
 	plt.show()
 
-	plt.plot(c.x, c.u[1, :], "-.k", linewidth=0.2, label="init")
-	plt.show()
-
-	plt.title("time = "*string(t)*", "*"C = "*string(C)*", "* title)
-	plt.plot(c.x, c.up, linestyle="dashed", linewidth=0.4, marker="o", markeredgewidth=0.4, markersize=4,  markerfacecolor="none", label="up")
-	plt.savefig("../figures/problem1_"*string(f)*string(C)*".pdf", bbox_inches="tight")
-	plt.show()
 end
 
 # %%
