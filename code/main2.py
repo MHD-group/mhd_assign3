@@ -3,7 +3,7 @@
 # vim:fenc=utf-8
 #
 # Created On  : 2023-04-03 00:24
-# Last Modified : 2023-04-03 16:58
+# Last Modified : 2023-04-26 01:13
 # Copyright © 2023 myron <yh131996@mail.ustc.edu.cn>
 #
 # Distributed under terms of the MIT license.
@@ -16,14 +16,44 @@ from matplotlib import pyplot as plt
 import argparse
 
 # wave's init shape
-def funcInit(x):
+def init_w(x):
     N = x.size
     tmp = np.zeros((3, N), dtype=x.dtype)
     conds = [x < -0, x >= 0]
     funcs = [[0.445, 0.5], [0.311, 0], [8.928, 1.4275]]
     for i in range(3):
         tmp[i] = np.piecewise(x, conds, funcs[i])
-    return tmp
+    print(tmp.shape)
+    print(tmp[:,0:1].shape)
+    print("----------")
+    tmp1 = tmp.transpose(1, 0)[:,:,np.newaxis]
+    print(tmp1.shape)
+    print(tmp1[:,1,0].shape)
+#    print(tmp1[0:1,:,np.newaxis].shape)
+    return tmp.transpose(1,0)[:,:,np.newaxis]
+
+def w2U(w, γ=1.4):
+    u=w.copy()
+    u[:, 0, 0] = w[:, 0, 0]
+    u[:, 1, 0] = w[:, 1, 0] / u[:, 0, 0]
+    u[:, 2, 0] = (γ-1) * (w[:,2,0] - 0.5 * u[:,0,0] * u[:,1,0]**2)
+    return u
+
+def w2A(w, γ=1.4):
+    U = w2U(w, γ)
+    ρ = w[:,0,0]
+    m = w[:,1,0]
+    u = U[:,1,0]
+    E = w[:,2,0]
+    A = np.zeros((ρ.size, 3, 3), float)
+    A[:,0,1] = 1
+    A[:,1,0] = 0.5*(u**2)*(γ-3)
+    A[:,1,1] = -u*(γ-3)
+    A[:,1,2] = (γ-1)
+    A[:,2,0] = (γ-1)*(u**3)-γ*u*E/ρ
+    A[:,2,1] = (γ/ρ)*E - 1.5*(γ-1)*u**2
+    A[:,2,2] = γ*u
+    return A
 
 def func(w, γ = 1.4):
     ρ = w[0]
@@ -115,46 +145,53 @@ if  __name__ == '__main__':
     # Δt
     t = C * args.resolution
     T = Ts[0]
+
     method = methods[0]
-    print(T, method)
-
-    n_t = int(T/t)
-
-    γ = 1.4
-
-    print(t, n_t)
-    # get input
-    if args.input == 1:
-        M0 = funcInit(x)
-    elif args.input == 2:
-        M1 = funcInit(x)
-    else:
-        print("error input function")
-    M2 = func(M0)
-
-    # simu output
-    print("γ = " + str(γ) + ", C = " + str(C) + ", n_t = "+ str(n_t))
-    if method == "Upwind":
-        print(0)
-        S1 = Upwind(M0, M2, γ, C, n_t)
-        print(1)
-    else:
-        print("error input function")
-    fig, axs = plt.subplots(3,
-                            3,
-                            figsize=(8, 6))
-    axs[0][0].plot(x, M0[0])
-    axs[1][0].plot(x, M0[1])
-    axs[2][0].plot(x, M0[2])
-#    axs[0][0].plot(x, M1[0])
-#    axs[1][0].plot(x, M1[1])
-#    axs[2][0].plot(x, M1[2])
-    axs[0][1].plot(x, M2[0])
-    axs[1][1].plot(x, M2[1])
-    axs[2][1].plot(x, M2[2])
-    axs[0][2].plot(x, S1[0])
-    axs[1][2].plot(x, S1[1])
-    axs[2][2].plot(x, S1[2])
-    plt.show()
+    w = np.array([[[1],[2],[3]],[[2],[3],[4]]], dtype=float)
+    print('w:', w)
+    u = w2U(w)
+    print('u:', u)
+    A = w2A(w)
+    print('A:',A)
+#    print(T, method)
+#
+#    n_t = int(T/t)
+#
+#    γ = 1.4
+#
+#    print(t, n_t)
+#    # get input
+#    if args.input == 1:
+#        M0 = init_w(x)
+#    elif args.input == 2:
+#        M1 = init_w(x)
+#    else:
+#        print("error input function")
+#    M2 = func(M0)
+#
+#    # simu output
+#    print("γ = " + str(γ) + ", C = " + str(C) + ", n_t = "+ str(n_t))
+#    if method == "Upwind":
+#        print(0)
+#        S1 = Upwind(M0, M2, γ, C, n_t)
+#        print(1)
+#    else:
+#        print("error input function")
+#    fig, axs = plt.subplots(3,
+#                            3,
+#                            figsize=(8, 6))
+#    axs[0][0].plot(x, M0[0])
+#    axs[1][0].plot(x, M0[1])
+#    axs[2][0].plot(x, M0[2])
+##    axs[0][0].plot(x, M1[0])
+##    axs[1][0].plot(x, M1[1])
+##    axs[2][0].plot(x, M1[2])
+#    axs[0][1].plot(x, M2[0])
+#    axs[1][1].plot(x, M2[1])
+#    axs[2][1].plot(x, M2[2])
+#    axs[0][2].plot(x, S1[0])
+#    axs[1][2].plot(x, S1[1])
+#    axs[2][2].plot(x, S1[2])
+#    plt.show()
 
 
