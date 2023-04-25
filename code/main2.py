@@ -3,7 +3,7 @@
 # vim:fenc=utf-8
 #
 # Created On  : 2023-04-03 00:24
-# Last Modified : 2023-04-26 01:13
+# Last Modified : 2023-04-26 03:27
 # Copyright © 2023 myron <yh131996@mail.ustc.edu.cn>
 #
 # Distributed under terms of the MIT license.
@@ -54,6 +54,15 @@ def w2A(w, γ=1.4):
     A[:,2,1] = (γ/ρ)*E - 1.5*(γ-1)*u**2
     A[:,2,2] = γ*u
     return A
+
+def w2F(w, γ=1.4):
+    U = w2U(w, γ)
+    u = U[:,1:2,:]
+    p = U[:,2:3,:]
+    sub = np.concatenate((np.zeros(p.shape, float),\
+            p, p*u), axis=1)
+    F = u*w+sub
+    return F
 
 def func(w, γ = 1.4):
     ρ = w[0]
@@ -153,6 +162,8 @@ if  __name__ == '__main__':
     print('u:', u)
     A = w2A(w)
     print('A:',A)
+    F = w2F(w)
+    print('F:',F)
 #    print(T, method)
 #
 #    n_t = int(T/t)
