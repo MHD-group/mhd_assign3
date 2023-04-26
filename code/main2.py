@@ -64,6 +64,7 @@ def w2F(w, γ=1.4):
     sub = np.concatenate((np.zeros(p.shape, float),\
             p, p*u), axis=1)
     F = u*w+sub
+    #print(F.shape)
     return F
 
 def w2R(w, γ=1.4):
@@ -165,18 +166,6 @@ def U2L(U, γ=1.4):
     L[:,2,2] = 1
     return L
 
-def func(w, γ = 1.4):
-    ρ = w[0]
-    m = w[1]
-    E = w[2]
-    u = m/ρ
-    res = w.copy()
-    res[0] = m
-    res[1] = (γ - 1)*E + (3 - γ)*m*m/(2*ρ)
-    res[2] = (γ*E - (γ - 1)*m*m/(2*ρ))*m/ρ
-    return res
-
-
 # wave's ref shape from excel
 def funcRef(x, C=1, t=0):
     conds = [x < -0.8,\
@@ -189,28 +178,33 @@ def funcRef(x, C=1, t=0):
              1.8]
     return np.roll(np.piecewise(x, conds, funcs), int(t*C))
 
-def Upwind(w, fw, γ=1.4, C=0.5, t=100):
-    N = w[1,:].size
-    print(w.shape, w.size)
-    tmp_w = np.expand_dims(w, 0).repeat(2, axis=0)
-    print(tmp_w.shape, tmp_w.size)
-    print(N)
-    tmp_w[0] = w.copy()
-    tmp_w[1] = w.copy()
-    tmp_fw = np.expand_dims(fw, 0).repeat(2, axis=0)
-    tmp_fw[0] = fw.copy()
-    tmp_fw[1] = fw.copy()
-    for n in range(5):
+def Upwind(w, γ=1.4, C=0.5, t=100):
+    N = w[:,0,0].size
+    #print(N, w.shape, w.size)
+    tmp_w = np.expand_dims(np.pad(w,((1,),(0,),(0,)), 'edge'), 0).repeat(2, axis=0)
+    #print(tmp_w.shape, tmp_w.size)
+    for n in range(3):
         cur = n%2
         nex = (n%2 + 1)%2
-        print("!")
+        #print("!")
         for i in range(N):
-            I = i - 1
-            tmp_w[nex, 0, I+1] =  tmp_w[cur, 0, I+1] - C*(tmp_fw[cur, 0, I+1] - tmp_fw[cur, 0, I])
-            tmp_w[nex, 1, I+1] =  tmp_w[cur, 1, I+1] - C*(tmp_fw[cur, 1, I+1] - tmp_fw[cur, 1, I])
-            tmp_w[nex, 2, I+1] =  tmp_w[cur, 2, I+1] - C*(tmp_fw[cur, 2, I+1] - tmp_fw[cur, 2, I])
-            result = tmp_w[nex]
-            tmp_fw[nex] = func(tmp_w[nex], γ)
+            I = i+1
+            Am = w2A(0.5*(tmp_w[cur,I:I+1,:,:]+tmp_w[cur,I-1:I,:,:]), γ)
+            Ap = w2A(0.5*(tmp_w[cur,I:I+1,:,:]+tmp_w[cur,I+1:I+2,:,:]), γ)
+            #print('Fm, ', I-1)
+            Fm = w2F(tmp_w[cur,I-1:I,:,:], γ)
+            #print(Fm)
+            #print('Fp, ', I+1)
+            Fp = w2F(tmp_w[cur,I+1:I+2,:,:], γ)
+            #print(Fp)
+            #print('F, ', I)
+            F = w2F(tmp_w[cur,I:I+1,:,:], γ)
+            #print(F)
+            #tmp_w[nex, I+1, :, :] =  tmp_w[cur, I+1, :, :] - 0.5*C*(Fp - Fm) + 0.5*C**2*(Ap * (Fp - F) - Am * (F - Fm))
+            x_tmp =  C*0.5*(Fp - Fm) - 0.5*C**2*(Ap@(Fp-F) - Am@(F-Fm))
+            #print(x_tmp.shape, tmp_w.shape)
+            tmp_w[nex, I+1:I+2, :, :] =  tmp_w[cur, I+1:I+2, :, :] - x_tmp#C*F*(tmp_w[cur, I+1:I+2, :, :] - tmp_w[cur,I:I+1,:,:])
+        result = tmp_w[nex,1:-1,:,:]
     return result
 
 def minmod(a, b):
@@ -278,45 +272,47 @@ if  __name__ == '__main__':
     λ = w2λ(w)
     print('λ:',λ)
 
-#    print(T, method)
-#
-#    n_t = int(T/t)
-#
-#    γ = 1.4
-#
-#    print(t, n_t)
-#    # get input
-#    if args.input == 1:
-#        M0 = init_w(x)
-#    elif args.input == 2:
-#        M1 = init_w(x)
-#    else:
-#        print("error input function")
-#    M2 = func(M0)
-#
-#    # simu output
-#    print("γ = " + str(γ) + ", C = " + str(C) + ", n_t = "+ str(n_t))
-#    if method == "Upwind":
-#        print(0)
-#        S1 = Upwind(M0, M2, γ, C, n_t)
-#        print(1)
-#    else:
-#        print("error input function")
-#    fig, axs = plt.subplots(3,
-#                            3,
-#                            figsize=(8, 6))
-#    axs[0][0].plot(x, M0[0])
-#    axs[1][0].plot(x, M0[1])
-#    axs[2][0].plot(x, M0[2])
-##    axs[0][0].plot(x, M1[0])
-##    axs[1][0].plot(x, M1[1])
-##    axs[2][0].plot(x, M1[2])
+    print(T, method)
+
+    n_t = int(T/t)
+
+    γ = 1.4
+
+    print(t, n_t)
+    # get input
+    if args.input == 1:
+        M0 = init_w(x)
+    elif args.input == 2:
+        M1 = init_w(x)
+    else:
+        print("error input function")
+
+    # simu output
+    print("γ = " + str(γ) + ", C = " + str(C) + ", n_t = "+ str(n_t))
+    if method == "Upwind":
+        print(0)
+        S1 = Upwind(M0, γ, C, n_t)
+        print(1, S1.shape)
+    else:
+        print("error input function")
+    fig, axs = plt.subplots(3,
+                            2,
+                            figsize=(8, 6))
+    print('x: ', x.shape)
+    print('M0: ', M0.shape)
+    print('S1: ', S1[1:-1,:,:].shape)
+    axs[0][0].plot(x, M0[:, 0, 0])
+    axs[1][0].plot(x, M0[:, 1, 0])
+    axs[2][0].plot(x, M0[:, 2, 0])
+#    axs[0][0].plot(x, M1[0])
+#    axs[1][0].plot(x, M1[1])
+#    axs[2][0].plot(x, M1[2])
 #    axs[0][1].plot(x, M2[0])
 #    axs[1][1].plot(x, M2[1])
 #    axs[2][1].plot(x, M2[2])
-#    axs[0][2].plot(x, S1[0])
-#    axs[1][2].plot(x, S1[1])
-#    axs[2][2].plot(x, S1[2])
-#    plt.show()
+    axs[0][1].plot(x, S1[:, 0, 0])
+    axs[1][1].plot(x, S1[:, 1, 0])
+    axs[2][1].plot(x, S1[:, 2, 0])
+    plt.show()
 
 
