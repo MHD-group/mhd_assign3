@@ -23,15 +23,16 @@ def init_w(x):
     funcs = [[0.445, 0.5], [0.311, 0], [8.928, 1.4275]]
     for i in range(3):
         tmp[i] = np.piecewise(x, conds, funcs[i])
-    print(tmp.shape)
-    print(tmp[:,0:1].shape)
-    print("----------")
+    #print(tmp.shape)
+    #print(tmp[:,0:1].shape)
+    #print("----------")
     tmp1 = tmp.transpose(1, 0)[:,:,np.newaxis]
-    print(tmp1.shape)
-    print(tmp1[:,1,0].shape)
+    #print(tmp1.shape)
+    #print(tmp1[:,1,0].shape)
 #    print(tmp1[0:1,:,np.newaxis].shape)
     return tmp.transpose(1,0)[:,:,np.newaxis]
 
+# conservation
 def w2U(w, γ=1.4):
     u=w.copy()
     u[:, 0, 0] = w[:, 0, 0]
@@ -39,6 +40,7 @@ def w2U(w, γ=1.4):
     u[:, 2, 0] = (γ-1) * (w[:,2,0] - 0.5 * u[:,0,0] * u[:,1,0]**2)
     return u
 
+# vector to Matrix
 def w2A(w, γ=1.4):
     U = w2U(w, γ)
     ρ = w[:,0,0]
@@ -63,6 +65,105 @@ def w2F(w, γ=1.4):
             p, p*u), axis=1)
     F = u*w+sub
     return F
+
+def w2R(w, γ=1.4):
+    U = w2U(w, γ)
+    ρ = w[:,0,0]
+    m = w[:,1,0]
+    E = w[:,2,0]
+    u = U[:,1,0]
+    p = U[:,2,0]
+    a = sqrt(γ*p/ρ)
+    H = (a**2)/(γ-1) + 0.5*u**2
+
+    R = np.zeros((ρ.size, 3, 3), float)
+    R[:,0,0] = 1
+    R[:,0,1] = 1
+    R[:,0,2] = 1
+    R[:,1,0] = u-a
+    R[:,1,1] = u
+    R[:,1,2] = u+a
+    R[:,2,0] = H-u*a
+    R[:,2,1] = 0.5*u**2
+    R[:,2,2] = H+u*a
+    return R
+
+# vector to Matrix
+def w2L(w, γ=1.4):
+    U = w2U(w, γ)
+    ρ = w[:,0,0]
+    m = w[:,1,0]
+    E = w[:,2,0]
+    u = U[:,1,0]
+    p = U[:,2,0]
+    a = sqrt(γ*p/ρ)
+    H = (a**2)/(γ-1) + 0.5*u**2
+    K = 0.5*(γ-1/a**2)
+
+    L = np.zeros((ρ.size, 3, 3), float)
+    L[:,0,0] = K * 0.5*u*(u+2*a/(γ-1))
+    L[:,0,1] = K * -(u+a/(γ-1))
+    L[:,0,2] = K * 1
+    L[:,1,0] = K * 2*(H-u**2)
+    L[:,1,1] = K * 2*u
+    L[:,1,2] = K * -2
+    L[:,2,0] = K * 0.5*u*(u-2*a/(γ-1))
+    L[:,2,1] = K * -(u-a/(γ-1))
+    L[:,2,2] = K * 1
+    return L
+
+# vector to Matrix
+def U2λ(U, γ=1.4):
+    ρ = U[:,0,0]
+    u = U[:,1,0]
+    p = U[:,2,0]
+    a = sqrt(γ*p/ρ)
+    λ = np.zeros((ρ.size, 3, 3), float)
+    λ[:,0,0] = u-a
+    λ[:,1,1] = u
+    λ[:,2,2] = u+a
+    return λ
+
+def w2λ(w, γ=1.4):
+    return U2λ(w2U(w, γ), γ)
+
+
+# non conservation
+# vector to Matrix
+def U2R(U, γ=1.4):
+    ρ = U[:,0,0]
+    u = U[:,1,0]
+    p = U[:,2,0]
+    R = np.zeros((ρ.size, 3, 3), float)
+    a = sqrt(γ*p/ρ)
+    R[:,0,0] = 0.5/(a**2)
+    R[:,0,1] = 1/(a**2)
+    R[:,0,2] = 0.5/(a**2)
+    R[:,1,0] = -0.5/(ρ*a)
+    R[:,1,1] = 0
+    R[:,1,2] = 0.5/(ρ*a)
+    R[:,2,0] = 0.5
+    R[:,2,1] = 0
+    R[:,2,2] = 0.5
+    return R
+
+# vector to Matrix
+def U2L(U, γ=1.4):
+    ρ = U[:,0,0]
+    u = U[:,1,0]
+    p = U[:,2,0]
+    L = np.zeros((ρ.size, 3, 3), float)
+    a = sqrt(γ*p/ρ)
+    L[:,0,0] = 0
+    L[:,0,1] = -ρ*a
+    L[:,0,2] = 1
+    L[:,1,0] = a**2
+    L[:,1,1] = 0
+    L[:,1,2] = -1
+    L[:,2,0] = 0
+    L[:,2,1] = ρ*a
+    L[:,2,2] = 1
+    return L
 
 def func(w, γ = 1.4):
     ρ = w[0]
@@ -164,6 +265,19 @@ if  __name__ == '__main__':
     print('A:',A)
     F = w2F(w)
     print('F:',F)
+    L = U2L(u)
+    print('L:',L)
+    R = U2R(u)
+    print('R:',R)
+    L = w2L(w)
+    print('L:',L)
+    R = w2R(w)
+    print('R:',R)
+    λ = U2λ(u)
+    print('λ:',λ)
+    λ = w2λ(w)
+    print('λ:',λ)
+
 #    print(T, method)
 #
 #    n_t = int(T/t)
