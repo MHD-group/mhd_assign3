@@ -40,6 +40,13 @@ def w2U(w, γ=1.4):
     u[:, 2, 0] = (γ-1) * (w[:,2,0] - 0.5 * u[:,0,0] * u[:,1,0]**2)
     return u
 
+def U2w(u, γ=1.4):
+    w=u.copy()
+    w[:, 0, 0] = u[:, 0, 0]
+    w[:, 1, 0] = u[:, 1, 0] * u[:, 0, 0]
+    w[:, 2, 0] = u[:, 2, 0] / (γ - 1) + 0.5*u[:, 0, 0]*u[:, 1, 0]**2
+    return w
+
 # vector to Matrix
 def w2A(w, γ=1.4):
     U = w2U(w, γ)
@@ -178,7 +185,33 @@ def funcRef(x, C=1, t=0):
              1.8]
     return np.roll(np.piecewise(x, conds, funcs), int(t*C))
 
+def Getdiff(u, γ, C):
+    print(u.shape)
+    L = U2L(u, γ)
+    R = U2R(u, γ)
+    D = U2λ(u, γ)
+    sgn = np.sign(D)
+    print(L.shape, R.shape, D.shape, sgn.shape)
+    for i in range(3):
+        for j in range(3):
+    return np.zeros(u.shape, float)
+
 def Upwind(w, γ=1.4, C=0.5, t=100):
+    u = w2U(w, γ)
+    N = u[:,0,0].size
+    #print(N, u.shape, u.size)
+    tmp_u = np.expand_dims(np.pad(u,((1,),(0,),(0,)), 'edge'), 0).repeat(2, axis=0)
+    #print(tmp_u.shape, tmp_u.size)
+    for n in range(t):
+        cur = n%2
+        nex = (n%2 + 1)%2
+        #print("!")
+        diff = Getdiff(tmp_u[cur, :, :, :], γ, C)
+        tmp_u[nex, :, :, :] =  tmp_u[cur, :, :, :] - diff
+        result = U2w(tmp_u[nex,1:-1,:,:], γ)
+    return result
+
+def Lax(w, γ=1.4, C=0.5, t=100):
     N = w[:,0,0].size
     #print(N, w.shape, w.size)
     tmp_w = np.expand_dims(np.pad(w,((1,),(0,),(0,)), 'edge'), 0).repeat(2, axis=0)
@@ -191,21 +224,6 @@ def Upwind(w, γ=1.4, C=0.5, t=100):
         F = w2F(tmp_w[cur,:,:,:], γ)
         for i in range(N):
             I = i+1
-            #Am = w2A(0.5*(tmp_w[cur,I:I+1,:,:]+tmp_w[cur,I-1:I,:,:]), γ)
-            #Ap = w2A(0.5*(tmp_w[cur,I:I+1,:,:]+tmp_w[cur,I+1:I+2,:,:]), γ)
-            ##print('Fm, ', I-1)
-            #Fm = w2F(tmp_w[cur,I-1:I,:,:], γ)
-            ##print(Fm)
-            ##print('Fp, ', I+1)
-            #Fp = w2F(tmp_w[cur,I+1:I+2,:,:], γ)
-            ##print(Fp)
-            ##print('F, ', I)
-            #F = w2F(tmp_w[cur,I:I+1,:,:], γ)
-            ##print(F)
-            ##tmp_w[nex, I+1, :, :] =  tmp_w[cur, I+1, :, :] - 0.5*C*(Fp - Fm) + 0.5*C**2*(Ap * (Fp - F) - Am * (F - Fm))
-            #x_tmp =  C*0.5*(Fp - Fm) - 0.5*C**2*(Ap@(Fp-F) - Am@(F-Fm))
-            ##print(x_tmp.shape, tmp_w.shape)
-            #tmp_w[nex, I+1:I+2, :, :] =  tmp_w[cur, I+1:I+2, :, :] - x_tmp#C*F*(tmp_w[cur, I+1:I+2, :, :] - tmp_w[cur,I:I+1,:,:])
             tmp_w[nex, I:I+1, :, :] =  tmp_w[cur, I:I+1, :, :]\
                     -0.5*C*(F[I+1:I+2,:,:] - F[I-1:I,:,:])\
                     +0.5*C*C*(0.5*(A[I+1:I+2,:,:] + A[I:I+1,:,:])@(F[I+1:I+2,:,:] - F[I:I+1,:,:])\
@@ -240,8 +258,8 @@ if  __name__ == '__main__':
     group = parser.add_mutually_exclusive_group()
     parser.add_argument("-x", "--resolution", default=0.01, type=float, help="length of Δx")
     parser.add_argument("-C", "--ratio", default=0.5, type=float, help="Δt/Δx")
-    parser.add_argument("-i", "--input", default=1, type=int, help="f(x) when t=0")
-    parser.add_argument("-m", "--methods", default="Upwind,Minmod", type=str, help="methods")
+    #parser.add_argument("-i", "--input", default=1, type=int, help="f(x) when t=0")
+    parser.add_argument("-m", "--methods", default="Upwind,LaxWendroff", type=str, help="methods")
     parser.add_argument("-t", "--times", default="0.5,0.75", type=str, help="time")
     args = parser.parse_args()
 
@@ -286,39 +304,35 @@ if  __name__ == '__main__':
 
     print(t, n_t)
     # get input
-    if args.input == 1:
-        M0 = init_w(x)
-    elif args.input == 2:
-        M1 = init_w(x)
-    else:
-        print("error input function")
+    #if args.input == 1:
+    #    M0 = init_w(x)
+    #elif args.input == 2:
+    #    M1 = init_w(x)
+    #else:
+    #    print("error input function")
+
+    w = init_w(x)
 
     # simu output
     print("γ = " + str(γ) + ", C = " + str(C) + ", n_t = "+ str(n_t))
     if method == "Upwind":
-        print(0)
-        S1 = Upwind(M0, γ, C, n_t)
-        print(1, S1.shape)
+        S1 = Upwind(w, γ, C, n_t)
+    elif method == "LaxWendroff":
+        S1 = Lax(w, γ, C, n_t)
     else:
         print("error input function")
     fig, axs = plt.subplots(3,
                             2,
                             figsize=(8, 6))
     print('x: ', x.shape)
-    print('M0: ', M0.shape)
-    print('S1: ', S1[1:-1,:,:].shape)
-    axs[0][0].plot(x, M0[:, 0, 0])
-    axs[1][0].plot(x, M0[:, 1, 0])
-    axs[2][0].plot(x, M0[:, 2, 0])
-#    axs[0][0].plot(x, M1[0])
-#    axs[1][0].plot(x, M1[1])
-#    axs[2][0].plot(x, M1[2])
-#    axs[0][1].plot(x, M2[0])
-#    axs[1][1].plot(x, M2[1])
-#    axs[2][1].plot(x, M2[2])
+    print('w: ', w.shape)
+    print('S1: ', S1[:,:,:].shape)
+    axs[0][0].plot(x, w[:, 0, 0])
+    axs[2][0].plot(x, w[:, 1, 0])
+    axs[1][0].plot(x, w[:, 2, 0])
     axs[0][1].plot(x, S1[:, 0, 0])
-    axs[1][1].plot(x, S1[:, 1, 0])
-    axs[2][1].plot(x, S1[:, 2, 0])
+    axs[2][1].plot(x, S1[:, 1, 0])
+    axs[1][1].plot(x, S1[:, 2, 0])
     plt.show()
 
 
