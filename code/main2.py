@@ -183,27 +183,33 @@ def Upwind(w, γ=1.4, C=0.5, t=100):
     #print(N, w.shape, w.size)
     tmp_w = np.expand_dims(np.pad(w,((1,),(0,),(0,)), 'edge'), 0).repeat(2, axis=0)
     #print(tmp_w.shape, tmp_w.size)
-    for n in range(3):
+    for n in range(t):
         cur = n%2
         nex = (n%2 + 1)%2
         #print("!")
+        A = w2A(tmp_w[cur,:,:,:], γ)
+        F = w2F(tmp_w[cur,:,:,:], γ)
         for i in range(N):
             I = i+1
-            Am = w2A(0.5*(tmp_w[cur,I:I+1,:,:]+tmp_w[cur,I-1:I,:,:]), γ)
-            Ap = w2A(0.5*(tmp_w[cur,I:I+1,:,:]+tmp_w[cur,I+1:I+2,:,:]), γ)
-            #print('Fm, ', I-1)
-            Fm = w2F(tmp_w[cur,I-1:I,:,:], γ)
-            #print(Fm)
-            #print('Fp, ', I+1)
-            Fp = w2F(tmp_w[cur,I+1:I+2,:,:], γ)
-            #print(Fp)
-            #print('F, ', I)
-            F = w2F(tmp_w[cur,I:I+1,:,:], γ)
-            #print(F)
-            #tmp_w[nex, I+1, :, :] =  tmp_w[cur, I+1, :, :] - 0.5*C*(Fp - Fm) + 0.5*C**2*(Ap * (Fp - F) - Am * (F - Fm))
-            x_tmp =  C*0.5*(Fp - Fm) - 0.5*C**2*(Ap@(Fp-F) - Am@(F-Fm))
-            #print(x_tmp.shape, tmp_w.shape)
-            tmp_w[nex, I+1:I+2, :, :] =  tmp_w[cur, I+1:I+2, :, :] - x_tmp#C*F*(tmp_w[cur, I+1:I+2, :, :] - tmp_w[cur,I:I+1,:,:])
+            #Am = w2A(0.5*(tmp_w[cur,I:I+1,:,:]+tmp_w[cur,I-1:I,:,:]), γ)
+            #Ap = w2A(0.5*(tmp_w[cur,I:I+1,:,:]+tmp_w[cur,I+1:I+2,:,:]), γ)
+            ##print('Fm, ', I-1)
+            #Fm = w2F(tmp_w[cur,I-1:I,:,:], γ)
+            ##print(Fm)
+            ##print('Fp, ', I+1)
+            #Fp = w2F(tmp_w[cur,I+1:I+2,:,:], γ)
+            ##print(Fp)
+            ##print('F, ', I)
+            #F = w2F(tmp_w[cur,I:I+1,:,:], γ)
+            ##print(F)
+            ##tmp_w[nex, I+1, :, :] =  tmp_w[cur, I+1, :, :] - 0.5*C*(Fp - Fm) + 0.5*C**2*(Ap * (Fp - F) - Am * (F - Fm))
+            #x_tmp =  C*0.5*(Fp - Fm) - 0.5*C**2*(Ap@(Fp-F) - Am@(F-Fm))
+            ##print(x_tmp.shape, tmp_w.shape)
+            #tmp_w[nex, I+1:I+2, :, :] =  tmp_w[cur, I+1:I+2, :, :] - x_tmp#C*F*(tmp_w[cur, I+1:I+2, :, :] - tmp_w[cur,I:I+1,:,:])
+            tmp_w[nex, I:I+1, :, :] =  tmp_w[cur, I:I+1, :, :]\
+                    -0.5*C*(F[I+1:I+2,:,:] - F[I-1:I,:,:])\
+                    +0.5*C*C*(0.5*(A[I+1:I+2,:,:] + A[I:I+1,:,:])@(F[I+1:I+2,:,:] - F[I:I+1,:,:])\
+                    -0.5*(A[I:I+1,:,:] + A[I-1:I,:,:])@(F[I:I+1,:,:] - F[I-1:I,:,:]))
         result = tmp_w[nex,1:-1,:,:]
     return result
 
