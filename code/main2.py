@@ -3,7 +3,7 @@
 # vim:fenc=utf-8
 #
 # Created On  : 2023-04-03 00:24
-# Last Modified : 2023-04-26 03:27
+# Last Modified : 2023-04-28 21:45
 # Copyright © 2023 myron <yh131996@mail.ustc.edu.cn>
 #
 # Distributed under terms of the MIT license.
@@ -186,15 +186,18 @@ def funcRef(x, C=1, t=0):
     return np.roll(np.piecewise(x, conds, funcs), int(t*C))
 
 def Getdiff(u, γ, C):
-    print(u.shape)
+    #print(u.shape)
     L = U2L(u, γ)
     R = U2R(u, γ)
-    D = U2λ(u, γ)
-    sgn = np.sign(D)
-    print(L.shape, R.shape, D.shape, sgn.shape)
-    for i in range(3):
-        for j in range(3):
-    return np.zeros(u.shape, float)
+    λ = U2λ(u, γ)
+    up_1 = np.roll(u, 1, axis=0)
+    um_1 = np.roll(u, -1, axis=0)
+    forward_diff = u - um_1
+    back_diff = up_1 - u
+    λp_1 = np.where(λ >= 0, λ, 0)
+    λm_1 = np.where(λ < 0, λ, 0)
+    #print(L.shape, R.shape, λ.shape, λm_1)
+    return R@λp_1@L@forward_diff + R@λm_1@L@back_diff
 
 def Upwind(w, γ=1.4, C=0.5, t=100):
     u = w2U(w, γ)
@@ -274,7 +277,6 @@ if  __name__ == '__main__':
     t = C * args.resolution
     T = Ts[0]
 
-    method = methods[0]
     w = np.array([[[1],[2],[3]],[[2],[3],[4]]], dtype=float)
     print('w:', w)
     u = w2U(w)
@@ -296,43 +298,36 @@ if  __name__ == '__main__':
     λ = w2λ(w)
     print('λ:',λ)
 
-    print(T, method)
-
-    n_t = int(T/t)
-
-    γ = 1.4
-
-    print(t, n_t)
-    # get input
-    #if args.input == 1:
-    #    M0 = init_w(x)
-    #elif args.input == 2:
-    #    M1 = init_w(x)
-    #else:
-    #    print("error input function")
-
     w = init_w(x)
-
-    # simu output
-    print("γ = " + str(γ) + ", C = " + str(C) + ", n_t = "+ str(n_t))
-    if method == "Upwind":
-        S1 = Upwind(w, γ, C, n_t)
-    elif method == "LaxWendroff":
-        S1 = Lax(w, γ, C, n_t)
-    else:
-        print("error input function")
     fig, axs = plt.subplots(3,
-                            2,
+                            len(methods),
                             figsize=(8, 6))
-    print('x: ', x.shape)
-    print('w: ', w.shape)
-    print('S1: ', S1[:,:,:].shape)
     axs[0][0].plot(x, w[:, 0, 0])
     axs[2][0].plot(x, w[:, 1, 0])
     axs[1][0].plot(x, w[:, 2, 0])
-    axs[0][1].plot(x, S1[:, 0, 0])
-    axs[2][1].plot(x, S1[:, 1, 0])
-    axs[1][1].plot(x, S1[:, 2, 0])
+    for (method, j) in zip(methods, range(len(methods))):
+        n_t = int(T/t)
+
+        γ = 1.4
+
+
+        # simu output
+        print("γ = " + str(γ) + ", C = " + str(C) + ", n_t = "+ str(n_t))
+        if method == "Upwind":
+            S1 = Upwind(w, γ, C, n_t)
+        elif method == "LaxWendroff":
+            S1 = Lax(w, γ, C, n_t)
+        else:
+            print("error input function")
+        print('x: ', x.shape)
+        print('w: ', w.shape)
+        print('S1: ', S1[:,:,:].shape)
+        axs[0][j].plot(x, S1[:, 0, 0])
+        axs[2][j].plot(x, S1[:, 1, 0])
+        axs[1][j].plot(x, S1[:, 2, 0])
+        axs[0][j].plot(x, w[:, 0, 0])
+        axs[2][j].plot(x, w[:, 1, 0])
+        axs[1][j].plot(x, w[:, 2, 0])
     plt.show()
 
 
