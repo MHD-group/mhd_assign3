@@ -3,7 +3,7 @@
 # vim:fenc=utf-8
 #
 # Created On  : 2023-04-03 00:24
-# Last Modified : 2023-04-28 21:45
+# Last Modified : 2023-04-28 22:08
 # Copyright © 2023 myron <yh131996@mail.ustc.edu.cn>
 #
 # Distributed under terms of the MIT license.
@@ -187,17 +187,27 @@ def funcRef(x, C=1, t=0):
 
 def Getdiff(u, γ, C):
     #print(u.shape)
+    print("u:", u)
     L = U2L(u, γ)
+    print("L:", L)
     R = U2R(u, γ)
+    print("R:", R)
     λ = U2λ(u, γ)
+    print("λ:", λ)
     up_1 = np.roll(u, 1, axis=0)
+    print("up_1:", up_1)
     um_1 = np.roll(u, -1, axis=0)
+    print("um_1:", um_1)
     forward_diff = u - um_1
+    print("forward_diff:", forward_diff)
     back_diff = up_1 - u
+    print("back_diff:", back_diff)
     λp_1 = np.where(λ >= 0, λ, 0)
+    print("λp_1:", λp_1)
     λm_1 = np.where(λ < 0, λ, 0)
+    print("λm_1:", λm_1)
     #print(L.shape, R.shape, λ.shape, λm_1)
-    return R@λp_1@L@forward_diff + R@λm_1@L@back_diff
+    return C*R@λp_1@L@forward_diff + C*R@λm_1@L@back_diff
 
 def Upwind(w, γ=1.4, C=0.5, t=100):
     u = w2U(w, γ)
@@ -210,7 +220,12 @@ def Upwind(w, γ=1.4, C=0.5, t=100):
         nex = (n%2 + 1)%2
         #print("!")
         diff = Getdiff(tmp_u[cur, :, :, :], γ, C)
-        tmp_u[nex, :, :, :] =  tmp_u[cur, :, :, :] - diff
+        #tmp_u[nex, :, :, :] =  tmp_u[cur, :, :, :] - diff
+        tmp_u[nex, :, :, :] =  tmp_u[cur, :, :, :] - C*\
+                U2R(tmp_u[cur, :, :, :], γ)@\
+                U2λ(tmp_u[cur, :, :, :], γ)@\
+                U2R(tmp_u[cur, :, :, :], γ)@\
+                (tmp_u[cur, :, :, :] - np.roll(tmp_u[cur, :, :, :], 1, axis=0))
         result = U2w(tmp_u[nex,1:-1,:,:], γ)
     return result
 
@@ -277,7 +292,7 @@ if  __name__ == '__main__':
     t = C * args.resolution
     T = Ts[0]
 
-    w = np.array([[[1],[2],[3]],[[2],[3],[4]]], dtype=float)
+    w = np.array([[[1],[2],[3]],[[2],[3],[4]],[[5],[6],[7]]], dtype=float)
     print('w:', w)
     u = w2U(w)
     print('u:', u)
@@ -297,6 +312,9 @@ if  __name__ == '__main__':
     print('λ:',λ)
     λ = w2λ(w)
     print('λ:',λ)
+
+    u = np.array([[[1],[2],[3]],[[2],[3],[4]],[[5],[6],[7]]], dtype=float)
+    print("Getdiff:", Getdiff(u, 1.4, 0.05))
 
     w = init_w(x)
     fig, axs = plt.subplots(3,
