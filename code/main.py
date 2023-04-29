@@ -19,8 +19,9 @@ import argparse
 def init_w(x):
     N = x.size
     tmp = np.zeros((3, N), dtype=x.dtype)
-    conds = [x < -0, x >= 0]
+    conds = [x <= -0, x > 0]
     funcs = [[0.445, 0.5], [0.311, 0], [8.928, 1.4275]]
+    #funcs = [[0.945, 0.5], [0.311, 0], [8.928, 1.4275]]
     for i in range(3):
         tmp[i] = np.piecewise(x, conds, funcs[i])
     #print(tmp.shape)
@@ -105,8 +106,8 @@ def w2L(w, γ=1.4):
     u = U[:,1,0]
     p = U[:,2,0]
     a = sqrt(γ*p/ρ)
-    H = (a**2)/(γ-1) + 0.5*u**2
-    K = 0.5*(γ-1/a**2)
+    H = γ*p/(ρ*(γ-1)) + 0.5*u**2
+    K = 0.5*(γ-1)*ρ/(γ*p)
 
     L = np.zeros((ρ.size, 3, 3), float)
     L[:,0,0] = K * 0.5*u*(u+2*a/(γ-1))
@@ -198,7 +199,7 @@ def funcRef(x, C=1, t=0):
     return [np.piecewise(x, conds, func_ρ), np.piecewise(x, conds, func_E), np.piecewise(x, conds, func_m)]
 
 def Upwind(w, γ=1.4, C=0.5, t=100):
-    print('calling upwind, ', w, γ, C, t)
+    #print('calling upwind, ', w, γ, C, t)
     u = w2U(w, γ)
     N = u[:,0,0].size
     tmp_u = np.expand_dims(np.pad(u,((1,),(0,),(0,)), 'edge'), 0).repeat(2, axis=0)
@@ -207,16 +208,16 @@ def Upwind(w, γ=1.4, C=0.5, t=100):
         nex = (n%2 + 1)%2
         c_u = tmp_u[cur,:,:,:]
         dia_λ = U2λ(c_u, γ)
-        pos = np.where(dia_λ>=0, dia_λ, 0)
-        neg = np.where(dia_λ<0, dia_λ, 0)
+        pos = np.where(dia_λ>0, dia_λ, 0)
+        neg = np.where(dia_λ<=0, dia_λ, 0)
         R = U2R(c_u, γ)
         L = U2L(c_u, γ)
         up = c_u - np.pad(np.roll(c_u, 1, axis=0)[1:-1,:,:], ((1,),(0,),(0,)), 'edge')
         um = np.pad(np.roll(c_u, -1, axis=0)[1:-1,:,:], ((1,),(0,),(0,)), 'edge') - c_u
         tmp_u[nex, :, :, :] =  c_u \
                 - C * (R@pos@L@up + R@neg@L@um)
-        result = U2w(tmp_u[nex,1:-1,:,:], γ)
-    return result
+        result = tmp_u[nex,1:-1,:,:]
+    return U2w(result, γ)
 
 def Lax(w, γ=1.4, C=0.5, t=100):
     N = w[:,0,0].size
@@ -264,8 +265,10 @@ if  __name__ == '__main__':
     parser = argparse.ArgumentParser(description="calculate X to the power of Y")
     group = parser.add_mutually_exclusive_group()
     parser.add_argument("-x", "--resolution", default=0.01, type=float, help="length of Δx")
+    parser.add_argument("-n", "--numbers", default=0, type=int, help="length of Δx")
     parser.add_argument("-C", "--ratio", default=0.5, type=float, help="Δt/Δx")
-    #parser.add_argument("-i", "--input", default=1, type=int, help="f(x) when t=0")
+    parser.add_argument("-s", "--start", default=-1, type=float, help="f(x) when t=0")
+    parser.add_argument("-e", "--end", default=1, type=float, help="f(x) when t=0")
     parser.add_argument("-m", "--methods", default="Upwind,LaxWendroff", type=str, help="methods")
     parser.add_argument("-t", "--times", default="0.5,0.75", type=str, help="time")
     args = parser.parse_args()
@@ -273,48 +276,46 @@ if  __name__ == '__main__':
     Ts = [float(idx) for idx in args.times.split(',')]
     methods = args.methods.split(',')
     print(Ts)
+    if args.numbers != 0:
+        res = (args.end-args.start)/args.numbers
+    else:
+        res = args.resolution
     # Δx: args.resolution
-    x = np.arange(-1, 1, args.resolution)
+    x = np.arange(args.start, args.end, res)
     # C is Δt/Δx
     C = args.ratio/4.7
     # Δt
-    t = C * args.resolution
-    T = Ts[0]
+    t = C * res
 
     w = init_w(x)
-    fig, axs = plt.subplots(3,
+    fig, axs = plt.subplots(3*len(Ts),
                             len(methods),
-                            figsize=(20, 6))
-    # axs[0][0].plot(x, w[:, 0, 0])
-    # axs[2][0].plot(x, w[:, 1, 0])
-    # axs[1][0].plot(x, w[:, 2, 0])
-    for (method, j) in zip(methods, range(len(methods))):
-        n_t = int(T/t)
+                            figsize=(40, 12))
+    for (T, i) in zip(Ts, range(len(Ts))):
+        for (method, j) in zip(methods, range(len(methods))):
+            n_t = int(T/t)
 
-        γ = 1.4
+            γ = 1.4
 
 
-        # simu output
-        print("γ = " + str(γ) + ", C = " + str(C) + ", n_t = "+ str(n_t))
-        if method == "Upwind":
-            S1 = Upwind(w, γ, C, n_t)
-        elif method == "LaxWendroff":
-            S1 = Lax(w, γ, C, n_t)
-        else:
-            print("error input function")
-        print('x: ', x.shape)
-        print('w: ', w.shape)
-        print('S1: ', S1[:,:,:].shape)
-        ref = funcRef(x, C, T)
-        axs[0][j].plot(x, S1[:, 0, 0])
-        axs[0][j].plot(x, ref[0])
-        axs[2][j].plot(x, S1[:, 1, 0])
-        axs[2][j].plot(x, ref[2])
-        axs[1][j].plot(x, S1[:, 2, 0])
-        axs[1][j].plot(x, ref[1])
-       # axs[0][j].plot(x, w[:, 0, 0])
-       # axs[2][j].plot(x, w[:, 1, 0])
-       # axs[1][j].plot(x, w[:, 2, 0])
+            # simu output
+            print("γ = " + str(γ) + ", C = " + str(C) + ", n_t = "+ str(n_t))
+            if method == "Upwind":
+                S1 = Upwind(w, γ, C, n_t)
+            elif method == "LaxWendroff":
+                S1 = Lax(w, γ, C, n_t)
+            else:
+                print("error input function")
+            print('x: ', x.shape)
+            print('w: ', w.shape)
+            print('S1: ', S1[:,:,:].shape)
+            ref = funcRef(x, C, T)
+            axs[i*3 + 0][j].plot(x, S1[:, 0, 0])
+            axs[i*3 + 0][j].plot(x, ref[0])
+            axs[i*3 + 2][j].plot(x, S1[:, 1, 0])
+            axs[i*3 + 2][j].plot(x, ref[2])
+            axs[i*3 + 1][j].plot(x, S1[:, 2, 0])
+            axs[i*3 + 1][j].plot(x, ref[1])
     plt.show()
 
 
