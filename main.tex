@@ -2,14 +2,30 @@
 %,draft
 ]{article}
 
+
 \usepackage{ctex}
-\usepackage{amsmath}
 \usepackage{graphicx}
-\usepackage{epstopdf}
-\usepackage{tikz}
-\usepackage{psfrag}
-\usepackage{natbib}
+\usepackage{amsmath}
+\usepackage{xcolor}
+\usepackage{physics}
 \usepackage{hyperref}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=Blue4Link,
+    filecolor=magenta,      
+    urlcolor=cyan,
+    pdfauthor=徐均益
+    }
+\definecolor{Blue4Link}{RGB}{46,49,146}
+\definecolor{myOrange}{RGB}{178,76,0}
+\definecolor{green4eye}{RGB}{0,120,2}%
+\definecolor{blue4eye}{RGB}{1,126,218}%
+\definecolor{cyan4eye}{RGB}{31,186,190}%
+\definecolor{myhighlight}{RGB}{255,214,161}
+\definecolor{mybackground}{RGB}{204,232,207}
+\usepackage{geometry}
+\usepackage{natbib}
+\usepackage{subcaption}
 
 \renewcommand{\refname}{参考文献}
 \renewcommand{\figurename}{图}
@@ -21,10 +37,11 @@
 
 \title{一维气体激波管问题 --- 第 3 次作业\footnote{\Term\Course}}
 
-\author{
-  郑惠南\footnote{Email: hue@ustc.edu.cn}
+\author{徐均益\footnote{ID: SA22214015 Email: jyxu@mail.ustc.edu.cn}
   \and
-  高新亮\footnote{Email: gaoxl@ustc.edu.cn}
+  余航\footnote{ID: SA22168021 Email: yh131996@mail.ustc.edu.cn}
+  \and
+  陈宇韬\footnote{ID: SA22214014 Email: chenyut@mail.ustc.edu.cn}
 }
 
 \date{%
@@ -32,7 +49,8 @@
 %CAS Key Laboratory for Basic Plasma Physics, School of Earth and Space Sciences,
 %\\
 %University of Science and Technology of China, Hefei, Anhui 230026, China
-中国科学技术大学地球与空间科学学院, 合肥 230026
+中国科学技术大学核科学技术学院, 合肥 230026 \\
+中国科学技术大学物质科学研究院等离子所, 合肥 230026
 %
 }
 
@@ -45,6 +63,9 @@
 分析流体中不同波模的物理和数值特性, 请在 \textbf{\due} 前完成并提交. 
 
 \end{abstract}
+
+\section{引言}
+
 
 \section{方程和初始条件}
 考察一维多方气体 Euler 方程 \citep{Jeffrey1964}
@@ -103,7 +124,15 @@ TVD (Total Variation Diminishing) 格式 \citep{vanLeer1974,Harten1983}, 133 网
 
 \begin{figure}
 \begin{center}
-\includegraphics[width=.85\textwidth]{GasUpwind261.eps}
+\includegraphics[width=.85\textwidth]{figures/lax_wendroff261.pdf}
+\caption{Lax-Wendroff 格式计算结果, 网格点数为 261. \textbf{从上到下分别是密度 $\rho$, 能量 $E$ 和质量流 $m = \rho u$.}
+其中点线是初值, 虚线 (上面的数据点用符号 $\circ$ 标注) 是 $t=0.14$ 时的数值结果, 实线是对应的真实解.}\label{Fig:Upwind}
+\end{center}
+
+\end{figure}
+\begin{figure}
+\begin{center}
+\includegraphics[width=.85\textwidth]{figures/upwind261.pdf}
 \caption{迎风格式计算结果, 网格点数为 261. \textbf{从上到下分别是密度 $\rho$, 能量 $E$ 和质量流 $m = \rho u$.}
 其中点线是初值, 虚线 (上面的数据点用符号 $\circ$ 标注) 是 $t=0.14$ 时的数值结果, 实线是对应的真实解.}\label{Fig:Upwind}
 \end{center}
@@ -111,14 +140,14 @@ TVD (Total Variation Diminishing) 格式 \citep{vanLeer1974,Harten1983}, 133 网
 
 \begin{figure}
 \begin{center}
-\includegraphics[width=.85\textwidth]{GasvanLeer133.eps}
+\includegraphics[width=.85\textwidth]{figures/limiter133.pdf}
 \caption{(van Leer) TVD 格式计算结果, 网格点数为 133. 其他标注同图~\ref{Fig:Upwind}.}\label{Fig:vanLeerA}
 \end{center}
 \end{figure}
 
 \begin{figure}
 \begin{center}
-\includegraphics[width=.85\textwidth]{GasvanLeer261.eps}
+\includegraphics[width=.85\textwidth]{figures/limiter261.pdf}
 \caption{(van Leer) TVD 格式计算结果, 网格点数为 261. 其他标注同图~\ref{Fig:Upwind}.}\label{Fig:vanLeerB}
 \end{center}
 \end{figure}

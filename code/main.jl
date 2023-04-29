@@ -5,14 +5,13 @@
     Distributed under terms of the MIT license.
 =#
 
-using LinearAlgebra:diagm
 using PyCall
 using LaTeXStrings
 
 # %%
 @pyimport matplotlib.pyplot as plt
 @pyimport matplotlib # https://stackoverflow.com/questions/3899980/how-to-change-the-font-size-on-a-matplotlib-plot
-matplotlib.rc("font", size=10)
+matplotlib.rc("font", size=14)
 
 const γ = 1.4
 
@@ -27,8 +26,6 @@ function minmod(a::AbstractFloat, b::AbstractFloat)::AbstractFloat
 	end
 	return 0
 end
-# %%
-
 
 function w2U(w::Vector)::Vector
 	u=similar(w)
@@ -108,14 +105,12 @@ function w2A(w::Vector)::Matrix
 		 (γ-1)*u^3-γ*u/ρ*E    γ/ρ*E-1.5*(γ-1)*u^2   γ*u]
 end
 
-
 function w2F(w::Vector)::Vector
 	U = w |> w2U
 	u = U[2]
 	p = U[3]
 	F = u*w .+ [0, p, p*u]
 end
-
 
 function w2R(w::Vector)::Matrix
 	U = w |> w2U
@@ -150,17 +145,10 @@ for l in 2:size(w, 2)-1
 	F = w[:, l] |> w2F
 	wp[:, l] .= w[:, l] - 0.5C*(Fp - Fm) +
 	0.5C^2*(Ap*(Fp-F) - Am * (F-Fm))
-	# B = 0.5C*(u[l] + u[l-1])
-	# up[l] = u[l] - B *  (u[l] - u[l-1]) - 0.5 * B * (1 - B) *
-	# 	( minmod(u[l]-u[l-1], u[l+1]-u[l]) - minmod(u[l-1]-u[l-2], u[l]-u[l-1]) )
 end
 end
 
 function upwind_non(UP::Matrix, U::Matrix, C::AbstractFloat)
-	# l=104
-	# sum(U .== NaN)
-	# U[:, 104]
-	# c.u[:, 104]
 	for l in 2:size(U, 2)-1
 		λ= U[:, l] |> U2λ
 		R = U[:, l] |> U2R
@@ -168,7 +156,7 @@ function upwind_non(UP::Matrix, U::Matrix, C::AbstractFloat)
 		for k = 1:3
 			Σ=0.0
 			for i = 1:3
-				s = Int(sign(λ[i]))
+				s = λ[i] >= 0 ? 1 : -1
 				for j = 1:3
 					Σ += s*λ[i]*R[k, i]*L[i, j]*(U[j, l] - U[j, l-s])
 				end
@@ -178,15 +166,30 @@ function upwind_non(UP::Matrix, U::Matrix, C::AbstractFloat)
 	end
 end
 
-function upwind(wp::Matrix, w::Matrix, C::AbstractFloat)
+function upwind01(wp::Matrix, w::Matrix, C::AbstractFloat)
 	for l in 2:size(w, 2)-1
+		# λ = w[:, l-1] |> w2λ
+		# λp = w[:, l+1] |> w2λ
+		# λ = 0.5*(λm+λp)
+		# Rm = w[:, l-1] |> w2R
+		# Rp = w[:, l+1] |> w2R
+		# R = 0.5*(Rm+Rp)
+		# Lm = w[:, l-1] |> w2L
+		# Lp = w[:, l+1] |> w2L
+		# L = 0.5*(Lm+Lp)
 		λ = w[:, l] |> w2λ
-		R = w[:, l] |> w2R
-		L = w[:, l] |> w2L
 		for k = 1:3
 			Σ=0.0
 			for i = 1:3
-				s = Int(sign(λ[i]))
+				s = λ[i] >= 0 ? 1 : -1
+				λp = w[:, l-s] |> w2λ
+				Λ = 0.5(λ+λp)
+				Rm = w[:, l] |> w2R
+				Rp = w[:, l-s] |> w2R
+				R = 0.5*(Rm+Rp)
+				Lm = w[:, l] |> w2L
+				Lp = w[:, l-s] |> w2L
+				L = 0.5*(Lm+Lp)
 				for j = 1:3
 					Σ += s*λ[i]*R[k, i]*L[i, j]*(w[j, l] - w[j, l-s])
 				end
@@ -196,18 +199,195 @@ function upwind(wp::Matrix, w::Matrix, C::AbstractFloat)
 	end
 end
 
-function limiter(wp::Matrix, w::Matrix, C::AbstractFloat)
-	for l in 3:size(w, 2)-2
-		λ= w[:, l] |> w2λ
-		R = w[:, l] |> w2R
-		L = w[:, l] |> w2L
+function upwind00(wp::Matrix, w::Matrix, C::AbstractFloat)
+	for l in 2:size(w, 2)-1
+		λ = w[:, l] |> w2λ
 		for k = 1:3
 			Σ=0.0
 			for i = 1:3
-				s = Int(sign(λ[i]))
+				s = λ[i] >= 0 ? 1 : -1
+				λp = w[:, l-s] |> w2λ
+				Λ = 0.5(λ+λp)
+				Rm = w[:, l] |> w2R
+				Rp = w[:, l-s] |> w2R
+				R = 0.5*(Rm+Rp)
+				Lm = w[:, l] |> w2L
+				Lp = w[:, l-s] |> w2L
+				L = 0.5*(Lm+Lp)
 				for j = 1:3
-					a = s*λ[i]*R[k, i]*L[i, j]
+					a = s*Λ[i]*Rm[k, i]*Lm[i, j]
 					Σ += a*(w[j, l] - w[j, l-s])
+				end
+			end
+			wp[k, l] =w[k, l] - C*Σ
+		end
+	end
+end
+
+function upwind0(wp::Matrix, w::Matrix, C::AbstractFloat)
+	for l in 2:size(w, 2)-1
+		λ = w[:, l] |> w2λ
+		Rm = w[:, l] |> w2R
+		Lm = w[:, l] |> w2L
+		for k = 1:3
+			Σ=0.0
+			for i = 1:3
+				s = λ[i] >= 0 ? 1 : -1
+				λp = w[:, l-s] |> w2λ
+				Rp = w[:, l-s] |> w2R
+				# R = 0.5*(Rm+Rp)
+				Lp = w[:, l-s] |> w2L
+				# L = 0.5*(Lm+Lp)
+				for j = 1:3
+					am = s*λ[i]*Rm[k, i]*Lm[i, j]
+					ap = s*λp[i]*Rp[k, i]*Lp[i, j]
+					a = 0.5*(am+ap)
+					Σ += a*(w[j, l] - w[j, l-s])
+				end
+			end
+			wp[k, l] =w[k, l] - C*Σ
+		end
+	end
+end
+
+function upwind(wp::Matrix, w::Matrix, C::AbstractFloat)
+	for l in 2:size(w, 2)-1
+		λ = w[:, l] |> w2λ
+		for k = 1:3
+			Σ=0.0
+			for i = 1:3
+				s = λ[i] >= 0 ? 1 : -1
+				λp = w[:, l-s] |> w2λ
+				Λ = 0.5(λ+λp)
+				Rm = w[:, l] |> w2R
+				Rp = w[:, l-s] |> w2R
+				R = 0.5*(Rm+Rp)
+				Lm = w[:, l] |> w2L
+				Lp = w[:, l-s] |> w2L
+				L = 0.5*(Lm+Lp)
+				for j = 1:3
+					a = s*Λ[i]*R[k, i]*L[i, j]
+					Σ += a*(w[j, l] - w[j, l-s])
+				end
+			end
+			wp[k, l] =w[k, l] - C*Σ
+		end
+	end
+end
+
+function limiter0(wp::Matrix, w::Matrix, C::AbstractFloat)
+	for l in 3:size(w, 2)-2
+		λ = w[:, l] |> w2λ
+		Rm = w[:, l] |> w2R
+		Lm = w[:, l] |> w2L
+		for k = 1:3
+			Σ=0.0
+			for i = 1:3
+				s = λ[i] >= 0 ? 1 : -1
+				λp = w[:, l-s] |> w2λ
+				Rp = w[:, l-s] |> w2R
+				# R = 0.5*(Rm+Rp)
+				Lp = w[:, l-s] |> w2L
+				# L = 0.5*(Lm+Lp)
+				for j = 1:3
+					am = s*λ[i]*Rm[k, i]*Lm[i, j]
+					ap = s*λp[i]*Rp[k, i]*Lp[i, j]
+					if s > 0
+						a = 0.6am+0.4ap
+					else
+						a = 0.5*(am+ap)
+					end
+					Σ += a*(w[j, l] - w[j, l-s])
+					Σ += 0.5a* (1 - a*C) *
+					( minmod(w[j, l]-w[j, l-1], w[j, l+1]-w[j,l]) -
+					 minmod(w[j,l-s]-w[j,l-s-1], w[j,l-s+1]-w[j,l-s]) )
+				end
+			end
+			wp[k, l] =w[k, l] - C*Σ
+		end
+	end
+end
+
+
+function limiter(wp::Matrix, w::Matrix, C::AbstractFloat)
+	for l in 3:size(w, 2)-2
+		λ= w[:, l] |> w2λ
+		# R = w[:, l] |> w2R
+		# L = w[:, l] |> w2L
+		for k = 1:3
+			Σ=0.0
+			for i = 1:3
+				s = λ[i] >= 0 ? 1 : -1
+				λp = w[:, l-s] |> w2λ
+				Λ = 0.5*(λ+λp)
+				Rm = w[:, l] |> w2R
+				Rp = w[:, l-s] |> w2R
+				R = 0.5*(Rm+Rp)
+				Lm = w[:, l] |> w2L
+				Lp = w[:, l-s] |> w2L
+				L = 0.5*(Lm+Lp)
+				for j = 1:3
+					a = s*Λ[i]*R[k, i]*L[i, j]
+					Σ += a*(w[j, l] - w[j, l-s])
+					Σ += 0.5a* (1 - a*C) *
+					( minmod(w[j, l]-w[j, l-1], w[j, l+1]-w[j,l]) -
+					 minmod(w[j,l-s]-w[j,l-s-1], w[j,l-s+1]-w[j,l-s]) )
+				end
+			end
+			wp[k, l] =w[k, l] - C*Σ
+		end
+	end
+end
+
+function limiter00(wp::Matrix, w::Matrix, C::AbstractFloat)
+	for l in 3:size(w, 2)-2
+		λ = w[:, l] |> w2λ
+		λm = w[:, l-1] |> w2λ
+		λp = w[:, l+1] |> w2λ
+		Λ = 0.5*(λm+λp)
+		Rm = w[:, l-1] |> w2R
+		Rp = w[:, l+1] |> w2R
+		R = 0.5*(Rm+Rp)
+		Lm = w[:, l-1] |> w2L
+		Lp = w[:, l+1] |> w2L
+		L = 0.5*(Lm+Lp)
+		for k = 1:3
+			Σ=0.0
+			for i = 1:3
+				s = λ[i] >= 0 ? 1 : -1
+				for j = 1:3
+					a = s*Λ[i]*Rm[k, i]*Lm[i, j]
+					Σ += a*(w[j, l] - w[j, l-s])
+					Σ += 0.5a* (1 - a*C) *
+					( minmod(w[j, l]-w[j, l-1], w[j, l+1]-w[j,l]) -
+					 minmod(w[j,l-s]-w[j,l-s-1], w[j,l-s+1]-w[j,l-s]) )
+				end
+			end
+			wp[k, l] =w[k, l] - C*Σ
+		end
+	end
+end
+
+function limiter01(wp::Matrix, w::Matrix, C::AbstractFloat)
+	for l in 3:size(w, 2)-2
+		λ= w[:, l] |> w2λ
+		# R = w[:, l] |> w2R
+		# L = w[:, l] |> w2L
+		for k = 1:3
+			Σ=0.0
+			for i = 1:3
+				s = λ[i] >= 0 ? 1 : -1
+				λp = w[:, l-s] |> w2λ
+				Λ = 0.5*(λ+λp)
+				Rm = w[:, l] |> w2R
+				Rp = w[:, l-s] |> w2R
+				R = 0.5*(Rm+Rp)
+				Lm = w[:, l] |> w2L
+				Lp = w[:, l-s] |> w2L
+				L = 0.5*(Lm+Lp)
+				for j = 1:3
+					a = s*λ[i]*Rm[k, i]*Lm[i, j]
+					Σ += s*Λ[i]*R[k, i]*L[i, j]*(w[j, l] - w[j, l-s])
 					Σ += 0.5a* (1 - a*C) *
 					( minmod(w[j, l]-w[j, l-1], w[j, l+1]-w[j,l]) -
 					 minmod(w[j,l-s]-w[j,l-s-1], w[j,l-s+1]-w[j,l-s]) )
@@ -241,8 +421,7 @@ function true_sol(x::AbstractVector, w::Matrix, t::AbstractFloat)
 	y2=[0.345, 0.527, 6.570]
 	w[:, x .< a] .= y1
 
-	k=(y1-y2)./(a-b)
-	# y = k(x-x1)+y1
+	k=(y1-y2)./(a-b) # y = k(x-x1)+y1
 	mask=@. a < x < b
 	for i = 1:3
 		w[i, mask] .= k[i]*(x[mask].-a) .+ y1[i]
@@ -281,27 +460,46 @@ function update!(c::Cells, flg::Bool, f::Function, C::AbstractFloat)
 end
 update!(c::Cells, flg::Bool, f::Function) = update!(c, flg, f, 0.5)
 
+function f2title(f::Function)
+	if f == upwind
+		return "Upwind"
+	end
+	if f == limiter
+		return "TVD"
+	end
+	if f == lax_wendroff
+		return "Lax-Wendroff"
+	end
+	return "unknown"
+end
+
+
 # %%
 C = 0.5
 Δx= 0.01
 # C = Δt/Δx
 Δt =  C * Δx
 
-
-
 # %%
-function problem1(C::AbstractFloat, f::Function)
+function problem1(C::AbstractFloat, f::Function, nx::Int = 261)
 
-	title = L"$m$"
+	# title = L"$m$"
 	# t=0.002
+	C_str=string(round(C, digits=3))
 	t=0.14
-	C = C/2.633
+	C = C/4.694
 	# C = 0.7/2.633
-	Δx= 2/262
+	Δx= 2/nx
 	Δt = Δx * C
 	# f = limiter
 	c=Cells(step=Δx, init=init)
-	plt.plot(c.x, c.u[1, :], "-.k", linewidth=0.2, label="init")
+	title = f |> f2title
+	fig, ax=plt.subplots(3,1, figsize=(12,13))
+	fig.suptitle("t = "*string(t)*"    "*"C = "*C_str*"    "*title, fontsize=16)
+	ax[1].plot(c.x, c.u[1, :], "-.k", linewidth=0.2, label=L"$\rho$(初始值)")
+	ax[3].plot(c.x, c.u[2, :], "-.k", linewidth=0.2, label=L"$m$(初始值)")
+	ax[2].plot(c.x, c.u[3, :], "-.k", linewidth=0.2, label=L"$E$(初始值)")
+
 	flg=true # flag
 	for _ = 1:round(Int, t/Δt)
 		flg=update!(c, flg, f, C)
@@ -309,15 +507,22 @@ function problem1(C::AbstractFloat, f::Function)
 	w=current(c, flg)
 	tw=similar(w)
 	true_sol(c.x, tw, t)
-	plt.subplot(311)
-	plt.plot(c.x, w[1, :], "-.b", linewidth=1)
-	plt.plot(c.x, tw[1, :], linewidth=1, color="b", label="Density")
-	plt.subplot(312)
-	plt.plot(c.x, w[2, :], "-.r", linewidth=1)
-	plt.plot(c.x, tw[2, :], linewidth=1, color="r", label="m")
-	plt.subplot(313)
-	plt.plot(c.x, w[3, :], "-.y", linewidth=1)
-	plt.plot(c.x, tw[3, :], linewidth=1, color="y", label="E")
+
+
+	ax[1].plot(c.x, tw[1, :], linewidth=1, color="k", label=L"$\rho$(真实解)", alpha=0.5)
+	ax[1].plot(c.x, w[1, :], "--b", linewidth=1, marker="o", markeredgewidth=0.4, markersize=4,  markerfacecolor="none", label=L"$\rho$(数值解)")
+	ax[1].set_title("密度", fontsize=14)
+	ax[1].legend()
+	ax[3].plot(c.x, tw[2, :], linewidth=1, color="k", label=L"$m$(真实解)", alpha=0.5)
+	ax[3].plot(c.x, w[2, :], "--r", linewidth=1, marker="o", markeredgewidth=0.4, markersize=4,  markerfacecolor="none", label=L"$m$(数值解)")
+	ax[2].set_title("质量流", fontsize=14)
+	ax[3].legend()
+	ax[2].plot(c.x, tw[3, :], linewidth=1, color="k", label=L"$E$(真实解)", alpha=0.5)
+	ax[2].plot(c.x, w[3, :], "--y", linewidth=1, marker="o", markeredgewidth=0.4, markersize=4,  markerfacecolor="none", label=L"$E$(数值解)")
+	ax[3].set_title("能量", fontsize=14)
+	ax[2].legend()
+
+	# plot(c.x, circshift(w, (0, 3)), tw)
 
 	# # plt.plot(c.x, c.u[1, :], "-.k", linewidth=0.2, label="init")
 	# w = U |> U2w
@@ -330,17 +535,28 @@ function problem1(C::AbstractFloat, f::Function)
 
 	# plt.title("time = "*string(t)*", "*"C = "*string(C)*", "* title )
 	# # plt.plot(c.x, c.up, linestyle="dashed", linewidth=0.4, marker="o", markeredgewidth=0.4, markersize=4,  markerfacecolor="none", label="up")
-	# # plt.savefig("../figures/problem1_"*string(f)*string(C)*title*".pdf", bbox_inches="tight")
+	plt.savefig("../figures/"*string(f)*string(nx)*".pdf", bbox_inches="tight")
 	# plt.show()
 
 end
 # %%
 
-plt.figure()
 problem1(0.05, limiter)
-plt.figure()
-problem1(0.05, upwind)
+# problem1(0.18, limiter)
 plt.show()
+
+problem1(0.05, limiter0, 133)
+plt.show()
+
+problem1(0.5, lax_wendroff)
+plt.show()
+
+
+problem1(0.5, upwind0)
+# problem1(0.5, upwind)
+# problem1(0.5, upwind00)
+plt.show()
+
 # %%
 
 function main()
