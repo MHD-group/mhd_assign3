@@ -11,8 +11,7 @@ using LaTeXStrings
 
 # %%
 @pyimport matplotlib.pyplot as plt
-@pyimport matplotlib
-# https://stackoverflow.com/questions/3899980/how-to-change-the-font-size-on-a-matplotlib-plot
+@pyimport matplotlib # https://stackoverflow.com/questions/3899980/how-to-change-the-font-size-on-a-matplotlib-plot
 matplotlib.rc("font", size=10)
 
 const γ = 1.4
@@ -142,6 +141,20 @@ end
 
 w2λ(w::Vector)::Vector = w |> w2U |> U2λ
 
+function lax_wendroff(wp::Matrix, w::Matrix, C::AbstractFloat)
+for l in 2:size(w, 2)-1
+	Am = 0.5*(w[:, l]+w[:, l-1]) |> w2A
+	Ap = 0.5*(w[:, l]+w[:, l+1]) |> w2A
+	Fm = w[:, l-1] |> w2F
+	Fp = w[:, l+1] |> w2F
+	F = w[:, l] |> w2F
+	wp[:, l] .= w[:, l] - 0.5C*(Fp - Fm) +
+	0.5C^2*(Ap*(Fp-F) - Am * (F-Fm))
+	# B = 0.5C*(u[l] + u[l-1])
+	# up[l] = u[l] - B *  (u[l] - u[l-1]) - 0.5 * B * (1 - B) *
+	# 	( minmod(u[l]-u[l-1], u[l+1]-u[l]) - minmod(u[l-1]-u[l-2], u[l]-u[l-1]) )
+end
+end
 
 function upwind_non(UP::Matrix, U::Matrix, C::AbstractFloat)
 	# l=104
@@ -165,24 +178,9 @@ function upwind_non(UP::Matrix, U::Matrix, C::AbstractFloat)
 	end
 end
 
-function lax_wendroff(wp::Matrix, w::Matrix, C::AbstractFloat)
-for l in 2:size(w, 2)-1
-	Am = 0.5*(w[:, l]+w[:, l-1]) |> w2A
-	Ap = 0.5*(w[:, l]+w[:, l+1]) |> w2A
-	Fm = w[:, l-1] |> w2F
-	Fp = w[:, l+1] |> w2F
-	F = w[:, l] |> w2F
-	wp[:, l] .= w[:, l] - 0.5C*(Fp - Fm) +
-	0.5C^2*(Ap*(Fp-F) - Am * (F-Fm))
-	# B = 0.5C*(u[l] + u[l-1])
-	# up[l] = u[l] - B *  (u[l] - u[l-1]) - 0.5 * B * (1 - B) *
-	# 	( minmod(u[l]-u[l-1], u[l+1]-u[l]) - minmod(u[l-1]-u[l-2], u[l]-u[l-1]) )
-end
-end
-
 function upwind(wp::Matrix, w::Matrix, C::AbstractFloat)
 	for l in 2:size(w, 2)-1
-		λ= w[:, l] |> w2λ
+		λ = w[:, l] |> w2λ
 		R = w[:, l] |> w2R
 		L = w[:, l] |> w2L
 		for k = 1:3
@@ -198,6 +196,28 @@ function upwind(wp::Matrix, w::Matrix, C::AbstractFloat)
 	end
 end
 
+function limiter(wp::Matrix, w::Matrix, C::AbstractFloat)
+	for l in 3:size(w, 2)-2
+		λ= w[:, l] |> w2λ
+		R = w[:, l] |> w2R
+		L = w[:, l] |> w2L
+		for k = 1:3
+			Σ=0.0
+			for i = 1:3
+				s = Int(sign(λ[i]))
+				for j = 1:3
+					a = s*λ[i]*R[k, i]*L[i, j]
+					Σ += a*(w[j, l] - w[j, l-s])
+					Σ += 0.5a* (1 - a*C) *
+					( minmod(w[j, l]-w[j, l-1], w[j, l+1]-w[j,l]) -
+					 minmod(w[j,l-s]-w[j,l-s-1], w[j,l-s+1]-w[j,l-s]) )
+				end
+			end
+			wp[k, l] =w[k, l] - C*Σ
+		end
+	end
+end
+
 # %%
 
 function init_non(x::AbstractVector, u::Matrix)
@@ -205,6 +225,11 @@ function init_non(x::AbstractVector, u::Matrix)
 	u[:, x .< 0] .= w2U(w)
 	w = [0.5, 0, 1.4275]
 	u[:, x .>= 0 ] .= w2U(w)
+end
+
+function init(x::AbstractVector, w::Matrix)
+	w[:, x .< 0] .= [0.445, 0.311, 8.928]
+	w[:, x .>= 0 ] .= [0.5, 0, 1.4275]
 end
 
 function true_sol(x::AbstractVector, w::Matrix, t::AbstractFloat)
@@ -226,11 +251,6 @@ function true_sol(x::AbstractVector, w::Matrix, t::AbstractFloat)
 	w[:, b.< x .< c] .= y2
 	w[:, c.< x .< d] .= [1.304, 1.994, 7.691]
 	w[:, x .> d] .= [0.500, 0.000, 1.428]
-end
-
-function init(x::AbstractVector, w::Matrix)
-	w[:, x .< 0] .= [0.445, 0.311, 8.928]
-	w[:, x .>= 0 ] .= [0.5, 0, 1.4275]
 end
 
 struct Cells
@@ -270,16 +290,16 @@ C = 0.5
 
 
 # %%
-function problem1(C::AbstractFloat, f::Function, title::String; Δx::AbstractFloat=0.007)
+function problem1(C::AbstractFloat, f::Function)
 
 	title = L"$m$"
 	# t=0.002
 	t=0.14
-	C = 0.5/2.633
+	C = C/2.633
 	# C = 0.7/2.633
-	Δx= 2/261
+	Δx= 2/262
 	Δt = Δx * C
-	f = upwind
+	# f = limiter
 	c=Cells(step=Δx, init=init)
 	plt.plot(c.x, c.u[1, :], "-.k", linewidth=0.2, label="init")
 	flg=true # flag
@@ -298,24 +318,29 @@ function problem1(C::AbstractFloat, f::Function, title::String; Δx::AbstractFlo
 	plt.subplot(313)
 	plt.plot(c.x, w[3, :], "-.y", linewidth=1)
 	plt.plot(c.x, tw[3, :], linewidth=1, color="y", label="E")
-	plt.show()
 
-	# plt.plot(c.x, c.u[1, :], "-.k", linewidth=0.2, label="init")
-	w = U |> U2w
+	# # plt.plot(c.x, c.u[1, :], "-.k", linewidth=0.2, label="init")
+	# w = U |> U2w
 
-	plt.plot(x, w[1, :], linewidth=1, color="b", label="Density")
-	plt.plot(x, w[2, :], linewidth=1, color="r", label="m")
-	plt.plot(x, w[3, :], linewidth=1, color="y", label="E")
-	# plt.plot(c.x, c.u[1, :], "-.k", linewidth=0.2, label="init")
-	plt.show()
+	# plt.plot(x, w[1, :], linewidth=1, color="b", label="Density")
+	# plt.plot(x, w[2, :], linewidth=1, color="r", label="m")
+	# plt.plot(x, w[3, :], linewidth=1, color="y", label="E")
+	# # plt.plot(c.x, c.u[1, :], "-.k", linewidth=0.2, label="init")
+	# plt.show()
 
-	plt.title("time = "*string(t)*", "*"C = "*string(C)*", "* title )
-	# plt.plot(c.x, c.up, linestyle="dashed", linewidth=0.4, marker="o", markeredgewidth=0.4, markersize=4,  markerfacecolor="none", label="up")
-	# plt.savefig("../figures/problem1_"*string(f)*string(C)*title*".pdf", bbox_inches="tight")
-	plt.show()
+	# plt.title("time = "*string(t)*", "*"C = "*string(C)*", "* title )
+	# # plt.plot(c.x, c.up, linestyle="dashed", linewidth=0.4, marker="o", markeredgewidth=0.4, markersize=4,  markerfacecolor="none", label="up")
+	# # plt.savefig("../figures/problem1_"*string(f)*string(C)*title*".pdf", bbox_inches="tight")
+	# plt.show()
 
 end
+# %%
 
+plt.figure()
+problem1(0.05, limiter)
+plt.figure()
+problem1(0.05, upwind)
+plt.show()
 # %%
 
 function main()
