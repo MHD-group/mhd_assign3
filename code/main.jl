@@ -9,6 +9,7 @@ using LinearAlgebra:diagm
 using PyCall
 using LaTeXStrings
 
+# %%
 @pyimport matplotlib.pyplot as plt
 @pyimport matplotlib
 # https://stackoverflow.com/questions/3899980/how-to-change-the-font-size-on-a-matplotlib-plot
@@ -123,12 +124,11 @@ function upwind_non(UP::Matrix, U::Matrix, C::AbstractFloat)
 	# c.u[:, 104]
 	for l in 2:size(U, 2)-1
 		λ= U[:, l] |> U2λ
-		s=@. Int(sign(λ))
-		R = U2R(U[:, l])
-		L = U2L(U[:, l])
+		R = U[:, l] |> U2R
+		L = U[:, l] |> U2L
 		D=similar(U[:, l])
 		for i in 1:3
-			D[i] = U[i, l] - U[i, l-s[i]]
+			D[i] = U[i, l] - U[i, l-Int(sign(λ[i]))]
 		end
 		Λ= abs.(λ) |> diagm
 		UP[:, l] .= U[:, l] - C * R*Λ*L * D
@@ -153,12 +153,11 @@ end
 function upwind(wp::Matrix, w::Matrix, C::AbstractFloat)
 	for l in 2:size(w, 2)-1
 		λ= w[:, l] |> w2λ
-		s=@. Int(sign(λ))
-		R = w2R(w[:, l])
-		L = w2L(w[:, l])
+		R = w[:, l] |> w2R
+		L = w[:, l] |> w2L
 		D=similar(w[:, l])
 		for i in 1:3
-			D[i] = w[i, l] - w[i, l-s[i]]
+			D[i] = w[i, l] - w[i, l-Int(sign(λ[i]))]
 		end
 		Λ= abs.(λ) |> diagm
 		wp[:, l] .= w[:, l] - C * R*Λ*L * D
@@ -167,16 +166,16 @@ end
 
 # %%
 
-function init1(x::AbstractVector, u::Matrix)
+function init_non(x::AbstractVector, u::Matrix)
 	w = [0.445, 0.311, 8.928]
 	u[:, x .< 0] .= w2U(w)
 	w = [0.5, 0, 1.4275]
 	u[:, x .>= 0 ] .= w2U(w)
 end
 
-function init0(x::AbstractVector, u::Matrix)
-	u[:, x .< 0] .= [0.445, 0.311, 8.928]
-	u[:, x .>= 0 ] .= [0.5, 0, 1.4275]
+function init0_con(x::AbstractVector, w::Matrix)
+	w[:, x .< 0] .= [0.445, 0.311, 8.928]
+	w[:, x .>= 0 ] .= [0.5, 0, 1.4275]
 end
 
 struct Cells
@@ -219,26 +218,26 @@ C = 0.5
 function problem1(C::AbstractFloat, f::Function, title::String; Δx::AbstractFloat=0.007)
 
 	title = L"$m$"
+	# t=0.002
 	t=0.14
-	C = 0.1
+	C = 0.2
 	Δx= 2/261
 	Δt = Δx * C
-	f = lax_wendroff
-	c=Cells(step=Δx, init=init0)
+	f = upwind_non
+	c=Cells(step=Δx, init=init_non)
 	plt.plot(c.x, c.u[1, :], "-.k", linewidth=0.2, label="init")
 	flg=true # flag
-	for i = 1:round(t/Δt)
+	for _ = 1:round(Int, t/Δt)
 		flg=update!(c, flg, f, C)
 	end
 	w=current(c, flg)
-	plt.plot(c.x, w[2, :], "-.b", linewidth=1)
-
+	plt.plot(c.x, w[1, :], "-.b", linewidth=1)
 	# plt.plot(c.x, c.u[1, :], "-.k", linewidth=0.2, label="init")
-	# plt.show()
+	plt.show()
 
 	plt.title("time = "*string(t)*", "*"C = "*string(C)*", "* title )
 	# plt.plot(c.x, c.up, linestyle="dashed", linewidth=0.4, marker="o", markeredgewidth=0.4, markersize=4,  markerfacecolor="none", label="up")
-	plt.savefig("../figures/problem1_"*string(f)*string(C)*title*".pdf", bbox_inches="tight")
+	# plt.savefig("../figures/problem1_"*string(f)*string(C)*title*".pdf", bbox_inches="tight")
 	plt.show()
 
 end
