@@ -197,47 +197,24 @@ def funcRef(x, C=1, t=0):
              1.428]
     return [np.piecewise(x, conds, func_ρ), np.piecewise(x, conds, func_E), np.piecewise(x, conds, func_m)]
 
-def Getdiff(u, γ, C):
-    #print(u.shape)
-   # print("u:", u)
-    L = U2L(u, γ)
-   # print("L:", L)
-    R = U2R(u, γ)
-   # print("R:", R)
-    λ = U2λ(u, γ)
-   # print("λ:", λ)
-    up_1 = np.roll(u, 1, axis=0)
-   # print("up_1:", up_1)
-    um_1 = np.roll(u, -1, axis=0)
-   # print("um_1:", um_1)
-    forward_diff = u - um_1
-   # print("forward_diff:", forward_diff)
-    back_diff = up_1 - u
-   # print("back_diff:", back_diff)
-    λp_1 = np.where(λ >= 0, λ, 0)
-   # print("λp_1:", λp_1)
-    λm_1 = np.where(λ < 0, λ, 0)
-   # print("λm_1:", λm_1)
-    #print(L.shape, R.shape, λ.shape, λm_1)
-    return C*R@λp_1@L@forward_diff + C*R@λm_1@L@back_diff
-
 def Upwind(w, γ=1.4, C=0.5, t=100):
+    print('calling upwind, ', w, γ, C, t)
     u = w2U(w, γ)
     N = u[:,0,0].size
-    #print(N, u.shape, u.size)
     tmp_u = np.expand_dims(np.pad(u,((1,),(0,),(0,)), 'edge'), 0).repeat(2, axis=0)
-    #print(tmp_u.shape, tmp_u.size)
     for n in range(t):
         cur = n%2
         nex = (n%2 + 1)%2
-        #print("!")
-        diff = Getdiff(tmp_u[cur, :, :, :], γ, C)
-        #tmp_u[nex, :, :, :] =  tmp_u[cur, :, :, :] - diff
-        tmp_u[nex, :, :, :] =  tmp_u[cur, :, :, :] - C*\
-                U2R(tmp_u[cur, :, :, :], γ)@\
-                U2λ(tmp_u[cur, :, :, :], γ)@\
-                U2R(tmp_u[cur, :, :, :], γ)@\
-                (tmp_u[cur, :, :, :] - np.roll(tmp_u[cur, :, :, :], 1, axis=0))
+        c_u = tmp_u[cur,:,:,:]
+        dia_λ = U2λ(c_u, γ)
+        pos = np.where(dia_λ>=0, dia_λ, 0)
+        neg = np.where(dia_λ<0, dia_λ, 0)
+        R = U2R(c_u, γ)
+        L = U2L(c_u, γ)
+        up = c_u - np.pad(np.roll(c_u, 1, axis=0)[1:-1,:,:], ((1,),(0,),(0,)), 'edge')
+        um = np.pad(np.roll(c_u, -1, axis=0)[1:-1,:,:], ((1,),(0,),(0,)), 'edge') - c_u
+        tmp_u[nex, :, :, :] =  c_u \
+                - C * (R@pos@L@up + R@neg@L@um)
         result = U2w(tmp_u[nex,1:-1,:,:], γ)
     return result
 
@@ -276,7 +253,7 @@ def limiter(x, C=1, t=1):
         for i in range(N):
             I = i - 2
             tmp[nex,I+1] =  tmp[cur,I+1] - C*(tmp[cur, I+1] - tmp[cur, I]) - 0.5 * C * (1 - C) *\
-			( minmod(tmp[cur, I+1]-tmp[cur, I], tmp[cur, I+2]-tmp[cur, I+1]) - \
+            ( minmod(tmp[cur, I+1]-tmp[cur, I], tmp[cur, I+2]-tmp[cur, I+1]) - \
                         minmod(tmp[cur, I]-tmp[cur, I-1], tmp[cur, I+1]-tmp[cur, I]) )
             result = tmp[nex]
 
@@ -299,42 +276,18 @@ if  __name__ == '__main__':
     # Δx: args.resolution
     x = np.arange(-1, 1, args.resolution)
     # C is Δt/Δx
-    C = args.ratio
+    C = args.ratio/4.7
     # Δt
     t = C * args.resolution
     T = Ts[0]
 
-    #w = np.array([[[1],[2],[3]],[[2],[3],[4]],[[5],[6],[7]]], dtype=float)
-    #print('w:', w)
-    #u = w2U(w)
-    #print('u:', u)
-    #A = w2A(w)
-    #print('A:',A)
-    #F = w2F(w)
-    #print('F:',F)
-    #L = U2L(u)
-    #print('L:',L)
-    #R = U2R(u)
-    #print('R:',R)
-    #L = w2L(w)
-    #print('L:',L)
-    #R = w2R(w)
-    #print('R:',R)
-    #λ = U2λ(u)
-    #print('λ:',λ)
-    #λ = w2λ(w)
-    #print('λ:',λ)
-
-    #u = np.array([[[1],[2],[3]],[[2],[3],[4]],[[5],[6],[7]]], dtype=float)
-    #print("Getdiff:", Getdiff(u, 1.4, 0.05))
-
     w = init_w(x)
     fig, axs = plt.subplots(3,
                             len(methods),
-                            figsize=(8, 6))
-    axs[0][0].plot(x, w[:, 0, 0])
-    axs[2][0].plot(x, w[:, 1, 0])
-    axs[1][0].plot(x, w[:, 2, 0])
+                            figsize=(20, 6))
+    # axs[0][0].plot(x, w[:, 0, 0])
+    # axs[2][0].plot(x, w[:, 1, 0])
+    # axs[1][0].plot(x, w[:, 2, 0])
     for (method, j) in zip(methods, range(len(methods))):
         n_t = int(T/t)
 
@@ -359,9 +312,9 @@ if  __name__ == '__main__':
         axs[2][j].plot(x, ref[2])
         axs[1][j].plot(x, S1[:, 2, 0])
         axs[1][j].plot(x, ref[1])
-        #axs[0][j].plot(x, w[:, 0, 0])
-        #axs[2][j].plot(x, w[:, 1, 0])
-        #axs[1][j].plot(x, w[:, 2, 0])
+       # axs[0][j].plot(x, w[:, 0, 0])
+       # axs[2][j].plot(x, w[:, 1, 0])
+       # axs[1][j].plot(x, w[:, 2, 0])
     plt.show()
 
 
