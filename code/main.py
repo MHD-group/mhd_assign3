@@ -175,37 +175,49 @@ def U2L(U, γ=1.4):
 
 # wave's ref shape from excel
 def funcRef(x, C=1, t=0):
-    conds = [x < -0.8,\
-             np.logical_and(x < -0.3, x >= -0.8),\
-             np.logical_and(x < 0, x >= -0.3),\
-             x >= 0]
-    funcs = [1.8,\
-             lambda x : 1.4 + 0.4 * cos(2*π * (x+0.8) ),\
-             1.0,\
-             1.8]
-    return np.roll(np.piecewise(x, conds, funcs), int(t*C))
+    conds = [x < -2.633*t,\
+             np.logical_and(x < -1.636*t, x >= -2.633*t),\
+             np.logical_and(x < 1.529*t, x >= -1.636*t),\
+             np.logical_and(x < 2.480*t, x >= 1.529*t),\
+             x >= 2.480*t]
+    func_ρ = [0.445,\
+             lambda x : (x - (-2.633*t)) * (0.345 - 0.445)/(-1.636*t +2.633*t) + 0.445,\
+             0.345,\
+             1.304,\
+             0.500]
+    func_m = [0.311,\
+             lambda x : (x - (-2.633*t)) * (0.527 - 0.311)/(-1.636*t +2.633*t) + 0.311,\
+             0.527,\
+             1.994,\
+             0.000]
+    func_E = [8.928,\
+             lambda x : (x - (-2.633*t)) * (6.570 - 8.928)/(-1.636*t +2.633*t) + 8.928,\
+             6.570,\
+             7.691,\
+             1.428]
+    return [np.piecewise(x, conds, func_ρ), np.piecewise(x, conds, func_E), np.piecewise(x, conds, func_m)]
 
 def Getdiff(u, γ, C):
     #print(u.shape)
-    print("u:", u)
+   # print("u:", u)
     L = U2L(u, γ)
-    print("L:", L)
+   # print("L:", L)
     R = U2R(u, γ)
-    print("R:", R)
+   # print("R:", R)
     λ = U2λ(u, γ)
-    print("λ:", λ)
+   # print("λ:", λ)
     up_1 = np.roll(u, 1, axis=0)
-    print("up_1:", up_1)
+   # print("up_1:", up_1)
     um_1 = np.roll(u, -1, axis=0)
-    print("um_1:", um_1)
+   # print("um_1:", um_1)
     forward_diff = u - um_1
-    print("forward_diff:", forward_diff)
+   # print("forward_diff:", forward_diff)
     back_diff = up_1 - u
-    print("back_diff:", back_diff)
+   # print("back_diff:", back_diff)
     λp_1 = np.where(λ >= 0, λ, 0)
-    print("λp_1:", λp_1)
+   # print("λp_1:", λp_1)
     λm_1 = np.where(λ < 0, λ, 0)
-    print("λm_1:", λm_1)
+   # print("λm_1:", λm_1)
     #print(L.shape, R.shape, λ.shape, λm_1)
     return C*R@λp_1@L@forward_diff + C*R@λm_1@L@back_diff
 
@@ -292,29 +304,29 @@ if  __name__ == '__main__':
     t = C * args.resolution
     T = Ts[0]
 
-    w = np.array([[[1],[2],[3]],[[2],[3],[4]],[[5],[6],[7]]], dtype=float)
-    print('w:', w)
-    u = w2U(w)
-    print('u:', u)
-    A = w2A(w)
-    print('A:',A)
-    F = w2F(w)
-    print('F:',F)
-    L = U2L(u)
-    print('L:',L)
-    R = U2R(u)
-    print('R:',R)
-    L = w2L(w)
-    print('L:',L)
-    R = w2R(w)
-    print('R:',R)
-    λ = U2λ(u)
-    print('λ:',λ)
-    λ = w2λ(w)
-    print('λ:',λ)
+    #w = np.array([[[1],[2],[3]],[[2],[3],[4]],[[5],[6],[7]]], dtype=float)
+    #print('w:', w)
+    #u = w2U(w)
+    #print('u:', u)
+    #A = w2A(w)
+    #print('A:',A)
+    #F = w2F(w)
+    #print('F:',F)
+    #L = U2L(u)
+    #print('L:',L)
+    #R = U2R(u)
+    #print('R:',R)
+    #L = w2L(w)
+    #print('L:',L)
+    #R = w2R(w)
+    #print('R:',R)
+    #λ = U2λ(u)
+    #print('λ:',λ)
+    #λ = w2λ(w)
+    #print('λ:',λ)
 
-    u = np.array([[[1],[2],[3]],[[2],[3],[4]],[[5],[6],[7]]], dtype=float)
-    print("Getdiff:", Getdiff(u, 1.4, 0.05))
+    #u = np.array([[[1],[2],[3]],[[2],[3],[4]],[[5],[6],[7]]], dtype=float)
+    #print("Getdiff:", Getdiff(u, 1.4, 0.05))
 
     w = init_w(x)
     fig, axs = plt.subplots(3,
@@ -340,12 +352,16 @@ if  __name__ == '__main__':
         print('x: ', x.shape)
         print('w: ', w.shape)
         print('S1: ', S1[:,:,:].shape)
+        ref = funcRef(x, C, T)
         axs[0][j].plot(x, S1[:, 0, 0])
+        axs[0][j].plot(x, ref[0])
         axs[2][j].plot(x, S1[:, 1, 0])
+        axs[2][j].plot(x, ref[2])
         axs[1][j].plot(x, S1[:, 2, 0])
-        axs[0][j].plot(x, w[:, 0, 0])
-        axs[2][j].plot(x, w[:, 1, 0])
-        axs[1][j].plot(x, w[:, 2, 0])
+        axs[1][j].plot(x, ref[1])
+        #axs[0][j].plot(x, w[:, 0, 0])
+        #axs[2][j].plot(x, w[:, 1, 0])
+        #axs[1][j].plot(x, w[:, 2, 0])
     plt.show()
 
 
