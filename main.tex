@@ -59,28 +59,22 @@
 \maketitle
 
 \begin{abstract}
-讨论一维气体激波管问题的有限差分数值解法, 结合理论分析讨论该方程的物理解和数值解的特性,
-分析流体中不同波模的物理和数值特性, 请在 \textbf{\due} 前完成并提交. 
+课程《磁流体力学的数值模拟方法》的第三次错也，讨论一维气体激波管问题的有限差分数值解法,分别使用守恒型方程的\textit{LaxWendroff}格式，非守恒型的\textit{Upwind}格式和\textit{Minmod}格式，通过理论分析和实验编程，讨论该方程的物理解和数值解的特性，并分析流体中不同波模的物理和数值特性。 
 
 \end{abstract}
 
 \section{引言}
+一维气体激波管问题是计算流体力学中的经典问题，也是为数不多的存在精确解的问题，常用来检测算例来检验数值格式，这使得学习研究和在此类问题上实现各种数值方法具有现实意义。同时一维气体激波管所使用的物理定理为连续性方程、动量方程、能量方程，可以写成三个守恒形式的方程，也意味着取合适的迭代矩阵，能使其数学描述为双曲守恒形式。可以验证各种方法在守恒形式和非守恒形式下的异同。本次作业只考虑无粘滞的理想气体状态方程下的一维激波问题。
 
-
-\section{方程和初始条件}
-考察一维多方气体 Euler 方程 \citep{Jeffrey1964}
+\section{理论基础介绍}
+\subsection{守恒形式}
+\subsubsection{方程介绍}
+考察一维多方气体 Euler 方程
 \begin{align}
 \frac{\partial w}{\partial t} + \frac{\partial f(w)}{\partial
 x}= 0,\label{Eqn:Euler}
 \end{align}
-的 Riemann 问题 (一维气体激波管问题)
-\begin{align}
-w(x,t)|_{t=0} = \left\{ \begin{array}{ll}
-W_L, & \quad x < 0 \\
-W_R, & \quad x > 0
-\end{array} \right.
-\end{align}
-其中
+的 Riemann 问题 (一维气体激波管问题)，其中
 \begin{align}
 w =& \left[\begin{array}{c}
 \rho\\
@@ -104,86 +98,70 @@ m =& \rho u,
 \\
 p =& (\gamma - 1)(E - \frac{1}{2} \rho u^2).
 \end{align}
-这里, $\rho$, $u$, $p$ 和 $E$ 分别是密度, 速度, 压力和总能量. 为和经典数值计算结果比较, 取文献 \citet{Harten1983} 中的值, 即 $\gamma=1.4$, 和
+这里, $\rho$, $u$, $p$ 和 $E$ 分别是密度, 速度, 压力和总能量. 其对应的三个方程分别为质量守恒方程，动量守恒方程和能量守恒方程。守恒形式可以采用\textit{LaxWendroff}格式设计实验。
+
+\subsubsection{特征向量计算}\label{Appendix}
+将方程\ref{Eqn:Euler}可以写成如下形式
 \begin{align}
-    W_L = \left[\begin{array}{l}
-    0.445\\
-    0.311\\
-    8.928
-    \end{array}\right], \quad W_R = \left[\begin{array}{l}
-    0.5\\
-    0\\
-    1.4275
-    \end{array}\right]
+\frac{\partial w}{\partial t} + \vb*A \vdot \frac{\partial w}{\partial
+x}= 0,\label{Eqn:Euler2}
 \end{align}
-设计两到三种有限差分格式, 编程进行数值计算, 给出图形, 比较和讨论结果. 或者, 利用附件中的 Excel 表格, 生成别的初值条件及解, 对流体力学中的间断问题进行数值计算并作进一步的讨论.
+守恒形式下 $\vb*A$ 的表达式
+\begin{align*}
+\vb*A =& \frac{\partial f}{\partial w} = \left[\begin{array}{ccc} 0 & 1 & 0
+\\
+\frac{1}{2} (\gamma  - 3) u^2 & -(\gamma - 3) u & \gamma - 1
+\\
+(\gamma - 1) u^3 - \gamma \frac{u}{\rho} E & \gamma \frac{1}{\rho} E-\frac{3}{2} (\gamma
+- 1) u^2 & \gamma u
+\end{array}
+\right]
+\end{align*}
+左右特征向量
+\begin{align*}
+\vb*R =& \left[\begin{array}{ccc} 1 & 1 & 1
+\\
+u - c & u & u + c
+\\
+H - u c & \frac{1}{2} u^2 & H + u c
+\end{array}
+\right]
+\\
+\vb*L =& \frac{\gamma - 1}{2 c^2} \left[\begin{array}{ccc} \frac{1}{2} u \left(u + \frac{2
+c}{\gamma - 1}\right) & -\left(u + \frac{c}{\gamma - 1}\right) & 1
+\\
+2(H - u^2) & 2 u & - 2
+\\
+\frac{1}{2} u \left(u - \frac{2 c}{\gamma - 1}\right) & -\left(u - \frac{c}{\gamma -
+1}\right) & 1
+\end{array}
+\right]
+\end{align*}
+其中
+\begin{align*}
+H =& \frac{E + p}{\rho} = \frac{c^2}{\gamma - 1} + \frac{1}{2} u^2,
+\\
+c^2 =& \gamma \frac{p}{\rho}.
+\end{align*}
 
-作为参考, 这里给出三个算例, CFL 系数均取 0.5, $t=0.14$ 时刻的数值的计算结果. 迎风格式, 261 网格的数据如图~\ref{Fig:Upwind},
-TVD (Total Variation Diminishing) 格式 \citep{vanLeer1974,Harten1983}, 133 网格的数据如图~\ref{Fig:vanLeerA}, 以及 TVD 格式, 261
-网格的数据如图~\ref{Fig:vanLeerB}. 供大家参考.
-
-\begin{figure}
-\begin{center}
-\includegraphics[width=.85\textwidth]{figures/lax_wendroff261.pdf}
-\caption{Lax-Wendroff 格式计算结果, 网格点数为 261. \textbf{从上到下分别是密度 $\rho$, 能量 $E$ 和质量流 $m = \rho u$.}
-其中点线是初值, 虚线 (上面的数据点用符号 $\circ$ 标注) 是 $t=0.14$ 时的数值结果, 实线是对应的真实解.}\label{Fig:Upwind}
-\end{center}
-
-\end{figure}
-\begin{figure}
-\begin{center}
-\includegraphics[width=.85\textwidth]{figures/upwind261.pdf}
-\caption{迎风格式计算结果, 网格点数为 261. \textbf{从上到下分别是密度 $\rho$, 能量 $E$ 和质量流 $m = \rho u$.}
-其中点线是初值, 虚线 (上面的数据点用符号 $\circ$ 标注) 是 $t=0.14$ 时的数值结果, 实线是对应的真实解.}\label{Fig:Upwind}
-\end{center}
-\end{figure}
-
-\begin{figure}
-\begin{center}
-\includegraphics[width=.85\textwidth]{figures/limiter133.pdf}
-\caption{(van Leer) TVD 格式计算结果, 网格点数为 133. 其他标注同图~\ref{Fig:Upwind}.}\label{Fig:vanLeerA}
-\end{center}
-\end{figure}
-
-\begin{figure}
-\begin{center}
-\includegraphics[width=.85\textwidth]{figures/limiter261.pdf}
-\caption{(van Leer) TVD 格式计算结果, 网格点数为 261. 其他标注同图~\ref{Fig:Upwind}.}\label{Fig:vanLeerB}
-\end{center}
-\end{figure}
-
-\section{格式参考}
-\subsection{Lax-Wendroff格式}
-对于守恒型方程，
-\begin{align}
-\frac{\partial u}{\partial t} + \frac{\partial F}{\partial x} = 0,
-\end{align}
-其 Lax-Wendroff 格式为
-\begin{align}
-u_j^{n+1} =& u_j^n - \frac{\Delta t}{2\Delta x} (F_{j+1}^n - F_{j-1}^n) \nonumber\\
-& + \frac{\Delta t^2}{2\Delta x^2} \left[A_{j+1/2}^n (F_{j+1}^n-F_j^n) - A_{j-1/2}^n (F_j^n -
-F_{j-1}^n)\right]
-\end{align}
-其中 $A = \frac{\partial F}{\partial u}$, $A$ 的表达式见第~\ref{Appendix}~节. 单元边界上的值可以取
-\begin{align}
-A_{j \pm 1/2}^n = A(u_{j \pm 1/2}^n), \qquad u_{j \pm 1/2}^n = \frac{1}{2} (u_j^n + u_{j \pm 1}^n)
-\end{align}
-
-\subsection{非守恒性 Upwind 格式}
+\subsection{非守恒形式}
 式~(\ref{Eqn:Euler}) 的非守恒形式为
 \begin{align}
-\frac{\partial U}{\partial t} + A \frac{\partial U}{\partial x} = 0,
+\pdv{\vb*u}{t} + \vb*B \pdv{\vb*u}{x} = 0,
+\label{Eqn:Euler3}
 \end{align}
 其中
 \begin{align}
-U = [u_j] = \left[\begin{array}{c}\rho\\ u\\ p\end{array}\right], \qquad A = A_{ij} = \left[\begin{array}{ccc}u & \rho & 0\\
+\vb*u = [u_j] = \left[\begin{array}{c}\rho\\ u\\ p\end{array}\right], \vb*B = B_{ij} = \left[\begin{array}{ccc}u & \rho & 0\\
 0 & u & 1/\rho\\ 0 & \gamma p & u\end{array}\right]
 \end{align}
-矩阵 $A$ 的特征值为 $u-a$, $u$, $u+a$ ($a^2 = \gamma p/\rho$), 对应的左右特征向量矩阵为 $L$ 和 $R$ 写为
+此时方程\ref{Eqn:Euler2}与方程\ref{Eqn:Euler3}虽然形式看起来相同，同时代入后得到的三个方程也相同，但是因为方程\ref{Eqn:Euler2}形式上可以化成守恒形式\ref{Eqn:Euler1}，而方程\ref{Eqn:Euler3}无法化成守恒形式。因此两个方程虽然表示的是同一个物理现象但是一个为守恒形式一个为非守恒形式，分别适用于不同的差分格式。
+
+其中，矩阵 $\vb*B$ 的特征值为 $u-a$, $u$, $u+a$ ($a^2 = \gamma p/\rho$), 对应的左右特征向量矩阵为 $\vb*L$ 和 $\vb*R$ 写为
 \begin{align}
-L =& [L_{ij}] = \left[\begin{array}{ccc}0 & -\rho a & 1\\ a^2 & 0 & -1\\ 0 & \rho a & 1\end{array}\right],
+\vb*L =& [L_{ij}] = \left[\begin{array}{ccc}0 & -\rho a & 1\\ a^2 & 0 & -1\\ 0 & \rho a & 1\end{array}\right],
 \\
-R =& [R_{ij}] = \left[\begin{array}{ccc}\frac{1}{2a^2} & \frac{1}{a^2} & \frac{1}{2a^2}\\
+\vb*R =& [R_{ij}] = \left[\begin{array}{ccc}\frac{1}{2a^2} & \frac{1}{a^2} & \frac{1}{2a^2}\\
 -\frac{1}{2\rho a} & 0 & \frac{1}{2\rho a}\\ \frac{1}{2} & 0 & \frac{1}{2}\end{array}\right]
 \end{align}
 波模分解的方程为
@@ -214,49 +192,157 @@ u_{k,l}^{n+1} =& u_{k,l}^n \nonumber\\
 \end{align}
 其中下角标 $l$ 对应于空间格点位置, 其他下角标对应于分量.
 
-\section{守恒形式方程的特征向量计算}\label{Appendix}
-守恒形式下 $A$ 的表达式
-\begin{align*}
-A =& \frac{\partial f}{\partial w} = \left[\begin{array}{ccc} 0 & 1 & 0
-\\
-\frac{1}{2} (\gamma  - 3) u^2 & -(\gamma - 3) u & \gamma - 1
-\\
-(\gamma - 1) u^3 - \gamma \frac{u}{\rho} E & \gamma \frac{1}{\rho} E-\frac{3}{2} (\gamma
-- 1) u^2 & \gamma u
-\end{array}
-\right]
-\end{align*}
-左右特征向量
-\begin{align*}
-R =& \left[\begin{array}{ccc} 1 & 1 & 1
-\\
-u - c & u & u + c
-\\
-H - u c & \frac{1}{2} u^2 & H + u c
-\end{array}
-\right]
-\\
-L =& \frac{\gamma - 1}{2 c^2} \left[\begin{array}{ccc} \frac{1}{2} u \left(u + \frac{2
-c}{\gamma - 1}\right) & -\left(u + \frac{c}{\gamma - 1}\right) & 1
-\\
-2(H - u^2) & 2 u & - 2
-\\
-\frac{1}{2} u \left(u - \frac{2 c}{\gamma - 1}\right) & -\left(u - \frac{c}{\gamma -
-1}\right) & 1
-\end{array}
-\right]
-\end{align*}
-其中
-\begin{align*}
-H =& \frac{E + p}{\rho} = \frac{c^2}{\gamma - 1} + \frac{1}{2} u^2,
-\\
-c^2 =& \gamma \frac{p}{\rho}.
-\end{align*}
+对于非守恒方程可以用迎风格式和\textit{minmod}格式。
+
+\section{实验与结果分析}
+\subsection{初始值设计}
+对方程
+\begin{align}
+\frac{\vb*w}{\partial t} + \frac{\vb*F}{\partial x} = 0
+\end{align}
+在$t = 0$时刻有
+\begin{align}
+w(x,t)|_{t=0} = \left\{ \begin{array}{ll}
+W_L, & \quad x < 0 \\
+W_R, & \quad x > 0
+\end{array} \right.
+\end{align}
+为和经典数值计算结果比较，取文献 \citet{Harten1983} 中的值, 即 $\gamma=1.4$, 和
+\begin{align}
+    W_L = \left[\begin{array}{l}
+    0.445\\
+    0.311\\
+    8.928
+    \end{array}\right], \quad W_R = \left[\begin{array}{l}
+    0.5\\
+    0\\
+    1.4275
+    \end{array}\right]
+\end{align}
+\subsection{精确解格式}
+精确解由附件Hydrodynamics.xlsx中提供，其最终形式为分为五段的分段函数，具体形式如下
+\begin{align}
+\rho = \left\{ \begin{array}{ll}
+0.445, & \quad x < v_1 t \\
+\qty(x-v_1 t)\dfrac{0.345 - 0.445}{v_2 t - v_1 t} + 0.445, & \quad v_1 t < x < v_2 t \\
+0.345, & \quad v_2 t< x < v_3 t \\
+1.304, & \quad v_3 t< x < v_4 t \\
+0.500, & \quad x > v_4 t
+\end{array} \right.
+\end{align}
+\begin{align}
+m = \left\{ \begin{array}{ll}
+0.311, & \quad x < v_1 t \\
+\qty(x-v_1 t)\dfrac{0.527 - 0.311}{v_2 t - v_1 t} + 0.311, & \quad v_1 t < x < v_2 t \\
+0.527, & \quad v_2 t< x < v_3 t \\
+1.994, & \quad v_3 t< x < v_4 t \\
+0.000, & \quad x > v_4 t
+\end{array} \right.
+\end{align}
+\begin{align}
+E = \left\{ \begin{array}{ll}
+8.928, & \quad x < v_1 t \\
+\qty(x-v_1 t)\dfrac{6.570 - 8.928}{v_2 t - v_1 t} + 8.928, & \quad v_1 t < x < v_2 t \\
+6.570, & \quad v_2 t< x < v_3 t \\
+7.691, & \quad v_3 t< x < v_4 t \\
+1.428, & \quad x > v_4 t
+\end{array} \right.
+\end{align}
+其中$v_1 = -2.633$, $v_2 = -1.636$, $v_3 = 1.529$, $v_4 = 2.480$
+\subsection{\textit{Lax-Wendroff}格式}
+\textit{Lax-Wendroff}格式适用于守恒型方程
+\begin{align}
+\frac{\vb*w}{\partial t} + \frac{\vb*F}{\partial x} = 0
+\end{align}
+其中差分格式为
+\begin{align}
+u_j^{n+1} =& u_j^n - \frac{\Delta t}{2\Delta x} (F_{j+1}^n - F_{j-1}^n) \nonumber\\
+& + \frac{\Delta t^2}{2\Delta x^2} \left[A_{j+1/2}^n (F_{j+1}^n-F_j^n) - A_{j-1/2}^n (F_j^n -
+F_{j-1}^n)\right]
+\end{align}
+其中 $A = \frac{\partial F}{\partial u}$, $A$ 的表达式见第~\ref{Appendix}~节. 单元边界上的值可以取
+\begin{align}
+A_{j \pm 1/2}^n = A(u_{j \pm 1/2}^n), \qquad u_{j \pm 1/2}^n = \frac{1}{2} (u_j^n + u_{j \pm 1}^n)
+\end{align}
+\begin{figure}
+\begin{center}
+\includegraphics[width=.85\textwidth]{figures/lax_wendroff261.pdf}
+\caption{Lax-Wendroff 格式计算结果, 网格点数为 261. \textbf{从上到下分别是密度 $\rho$, 能量 $E$ 和质量流 $m = \rho u$.}
+其中点线是初值, 虚线 (上面的数据点用符号 $\circ$ 标注) 是 $t=0.14$ 时的数值结果, 实线是对应的真实解.}\label{Fig:Upwind}
+\end{center}
+\end{figure}
+\subsubsection{\textit{Lax-Wendroff}实验结果分析与对比}
+（此处由徐均益填写）
+Lax-Wendroff的实验格式为，实验结果现象为，可以用item列出来
+\subsection{\textit{Upwind}格式}
+\textit{Upwind}格式既适用于守恒型方程，也适用于非守恒方程，本实验设计使用非守恒方程
+\begin{align}
+\pdv{\vb*u}{t} + \vb*B \pdv{\vb*u}{x} = 0
+\end{align}
+差分形式为
+\begin{align}
+u_{k,l}^{n+1} =& u_{k,l}^n \nonumber\\
+& - \frac{\Delta t}{\Delta x} \sum_i \sum_j \left\{\text{sgn}(\lambda_{i,l}^n)
+ \lambda_{i,l}^n R_{ki,l}^n L_{ij,l}^n \left[u_{j,l}^n - u_{j,l-\text{sgn}(\lambda_{i,l}^n)}^n\right]\right\}
+\end{align}
+因为分解特征值之后，其特征值的物理意义为传播的波速，所以其正负号决定了迎风格式的差分方向。
+
+\begin{figure}
+\begin{center}
+\includegraphics[width=.85\textwidth]{figures/upwind261.pdf}
+\caption{迎风格式计算结果, 网格点数为 261. \textbf{从上到下分别是密度 $\rho$, 能量 $E$ 和质量流 $m = \rho u$.}
+其中点线是初值, 虚线 (上面的数据点用符号 $\circ$ 标注) 是 $t=0.14$ 时的数值结果, 实线是对应的真实解.}\label{Fig:Upwind}
+\end{center}
+\end{figure}
+
+\subsubsection{\textit{Upwind}实验结果分析与对比}
+（此处由徐均益填写）
+\textit{Upwind}的实验格式为，实验结果现象为，可以用item列出来
+\subsection{\textit{TVD}格式}
+\textit{TVD}格式适用于非守恒方程
+\begin{align}
+\pdv{\vb*u}{t} + \vb*B \pdv{\vb*u}{x} = 0
+\end{align}
+\textit{TVD}全称为\textit{Total Variat Diminishing}，即总变差不变或减小，代表着震荡的剧烈程度减少，能保证迭代过程中不发散。其中\textit{Minmod}为某一种TVD格式，也是这次实验所采用的方法。
+\textit{Minmod}差分形式为
+\begin{align}
+u_{k,l}^{n+1} =& u_{k,l}^n \nonumber\\
+& - C\frac{\Delta t}{\Delta x} \sum_i \sum_j \left\{\text{sgn}(\lambda_{i,l}^n)
+ \lambda_{i,l}^n R_{ki,l}^n L_{ij,l}^n \left[u_{j,l}^n - u_{j,l-\text{sgn}(\lambda_{i,l}^n)}^n\right]\right\}\\
+& - \frac{1}{2}\frac{\Delta t}{\Delta x}C\qty(1-C\frac{\Delta t}{\Delta x})() \sum_i \sum_j \left\{\text{sgn}(\lambda_{i,l}^n)
+ \lambda_{i,l}^n R_{ki,l}^n L_{ij,l}^n \left[u_{j,l}^n - u_{j,l-\text{sgn}(\lambda_{i,l}^n)}^n\right]\right\}
+\end{align}
+\begin{figure}
+\begin{center}
+\includegraphics[width=.85\textwidth]{figures/limiter133.pdf}
+\caption{(van Leer) TVD 格式计算结果, 网格点数为 133. 其他标注同图~\ref{Fig:Upwind}.}\label{Fig:vanLeerA}
+\end{center}
+\end{figure}
+
+\begin{figure}
+\begin{center}
+\includegraphics[width=.85\textwidth]{figures/limiter261.pdf}
+\caption{(van Leer) TVD 格式计算结果, 网格点数为 261. 其他标注同图~\ref{Fig:Upwind}.}\label{Fig:vanLeerB}
+\end{center}
+\end{figure}
+\subsubsection{\textit{TVD}实验结果分析与对比}
+（此处由徐均益填写，并且请根据代码中的公司在上方MinMod公式处进行修改）
+\textit{TVD}的实验格式为，实验结果现象为，可以用item列出来
+
+\subsection{实验结果分析与对比}
+（此处由徐均益填写，对比三个方法的图，得出一定的结论与思考）
+%设计两到三种有限差分格式, 编程进行数值计算, 给出图形, 比较和讨论结果. 或者, 利用附件中的 Excel 表格, 生成别的初值条件及解, 对流体力学中的间断问题进行数值计算并作进一步的讨论.
+
+%作为参考, 这里给出三个算例, CFL 系数均取 0.5, $t=0.14$ 时刻的数值的计算结果. 迎风格式, 261 网格的数据如图~\ref{Fig:Upwind},
+%TVD (Total Variation Diminishing) 格式 \citep{vanLeer1974,Harten1983}, 133 网格的数据如图~\ref{Fig:vanLeerA}, 以及 TVD 格式, 261
+%网格的数据如图~\ref{Fig:vanLeerB}. 供大家参考.
+
+
+
 
 \section{分工说明}
-
-郑惠南提供了最初的报告文本, 数值计算结果生成的图形文件. 高新亮对整个文档结构, 规范, 文件清单进行了检查, 确认.
-
+余航编写了代码main.py与run.sh,徐均益编写了main.jl，两人独立实现了守恒形式与非守恒形式的数值代码编写并共同调试，还包括\textit{Minmod}等满足TVD的限制器格式。
+ 余航、徐均益、陈宇韬进行了文档编写和校验。
 \section{附件}
 
 \begin{enumerate}
