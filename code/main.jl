@@ -185,12 +185,16 @@ function upwind(wp::Matrix, w::Matrix, C::AbstractFloat)
 		λ= w[:, l] |> w2λ
 		R = w[:, l] |> w2R
 		L = w[:, l] |> w2L
-		D=similar(w[:, l])
-		for i in 1:3
-			D[i] = w[i, l] - w[i, l-Int(sign(λ[i]))]
+		for k = 1:3
+			Σ=0.0
+			for i = 1:3
+				s = Int(sign(λ[i]))
+				for j = 1:3
+					Σ += s*λ[i]*R[k, i]*L[i, j]*(w[j, l] - w[j, l-s])
+				end
+			end
+			wp[k, l] =w[k, l] - C*Σ
 		end
-		Λ= abs.(λ) |> diagm
-		wp[:, l] .= w[:, l] - C * R*Λ*L * D
 	end
 end
 
@@ -203,7 +207,28 @@ function init_non(x::AbstractVector, u::Matrix)
 	u[:, x .>= 0 ] .= w2U(w)
 end
 
-function init0_con(x::AbstractVector, w::Matrix)
+function true_sol(x::AbstractVector, w::Matrix, t::AbstractFloat)
+	a = -2.633*t
+	b = -1.636*t
+	c = 1.529*t
+	d = 2.480*t
+	y1=[0.445, 0.311, 8.928]
+	y2=[0.345, 0.527, 6.570]
+	w[:, x .< a] .= y1
+
+	k=(y1-y2)./(a-b)
+	# y = k(x-x1)+y1
+	mask=@. a < x < b
+	for i = 1:3
+		w[i, mask] .= k[i]*(x[mask].-a) .+ y1[i]
+	end
+
+	w[:, b.< x .< c] .= y2
+	w[:, c.< x .< d] .= [1.304, 1.994, 7.691]
+	w[:, x .> d] .= [0.500, 0.000, 1.428]
+end
+
+function init(x::AbstractVector, w::Matrix)
 	w[:, x .< 0] .= [0.445, 0.311, 8.928]
 	w[:, x .>= 0 ] .= [0.5, 0, 1.4275]
 end
@@ -250,27 +275,37 @@ function problem1(C::AbstractFloat, f::Function, title::String; Δx::AbstractFlo
 	title = L"$m$"
 	# t=0.002
 	t=0.14
-	C = 0.5/2
+	C = 0.5/2.633
+	# C = 0.7/2.633
 	Δx= 2/261
 	Δt = Δx * C
-	f = upwind_non
-	c=Cells(step=Δx, init=init_non)
+	f = upwind
+	c=Cells(step=Δx, init=init)
 	plt.plot(c.x, c.u[1, :], "-.k", linewidth=0.2, label="init")
 	flg=true # flag
 	for _ = 1:round(Int, t/Δt)
 		flg=update!(c, flg, f, C)
 	end
-	U=current(c, flg)
-	plt.plot(c.x, U[1, :], "-.b", linewidth=1)
-	plt.plot(c.x, U[2, :], "-.b", linewidth=1)
-	plt.plot(c.x, U[3, :], "-.b", linewidth=1)
-	# plt.plot(c.x, c.u[1, :], "-.k", linewidth=0.2, label="init")
+	w=current(c, flg)
+	tw=similar(w)
+	true_sol(c.x, tw, t)
+	plt.subplot(311)
+	plt.plot(c.x, w[1, :], "-.b", linewidth=1)
+	plt.plot(c.x, tw[1, :], linewidth=1, color="b", label="Density")
+	plt.subplot(312)
+	plt.plot(c.x, w[2, :], "-.r", linewidth=1)
+	plt.plot(c.x, tw[2, :], linewidth=1, color="r", label="m")
+	plt.subplot(313)
+	plt.plot(c.x, w[3, :], "-.y", linewidth=1)
+	plt.plot(c.x, tw[3, :], linewidth=1, color="y", label="E")
 	plt.show()
 
+	# plt.plot(c.x, c.u[1, :], "-.k", linewidth=0.2, label="init")
 	w = U |> U2w
-	plt.plot(c.x, w[1, :], "-.b", linewidth=1)
-	plt.plot(c.x, w[2, :], "-.b", linewidth=1)
-	plt.plot(c.x, w[3, :], "-.b", linewidth=1)
+
+	plt.plot(x, w[1, :], linewidth=1, color="b", label="Density")
+	plt.plot(x, w[2, :], linewidth=1, color="r", label="m")
+	plt.plot(x, w[3, :], linewidth=1, color="y", label="E")
 	# plt.plot(c.x, c.u[1, :], "-.k", linewidth=0.2, label="init")
 	plt.show()
 
