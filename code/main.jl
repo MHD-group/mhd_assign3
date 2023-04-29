@@ -38,6 +38,31 @@ function w2U(w::Vector)::Vector
 	u[3] = (γ-1) * (w[3] - 0.5 * u[1] * u[2]^2)
 	return u
 end
+function w2W(w::Matrix)::Matrix
+	U = similar(w)
+	for l = 1:size(U, 2)
+		U[:, l] .= w[:, l] |> w2U
+	end
+	return U
+end
+
+function U2w(U::Vector)::Vector
+	w=similar(U)
+	ρ = U[1]
+	u = U[2]
+	p = U[3]
+	w[1] = ρ
+	w[2] = ρ*u
+	w[3] = p/(γ-1) + 0.5ρ*u^2
+	return w
+end
+function U2w(U::Matrix)::Matrix
+	w = similar(U)
+	for l = 1:size(U, 2)
+		w[:, l] .= U[:, l] |> U2w
+	end
+	return w
+end
 
 function U2L(U::Vector)::Matrix
 	ρ = U[1]
@@ -117,6 +142,7 @@ end
 
 w2λ(w::Vector)::Vector = w |> w2U |> U2λ
 
+
 function upwind_non(UP::Matrix, U::Matrix, C::AbstractFloat)
 	# l=104
 	# sum(U .== NaN)
@@ -126,12 +152,16 @@ function upwind_non(UP::Matrix, U::Matrix, C::AbstractFloat)
 		λ= U[:, l] |> U2λ
 		R = U[:, l] |> U2R
 		L = U[:, l] |> U2L
-		D=similar(U[:, l])
-		for i in 1:3
-			D[i] = U[i, l] - U[i, l-Int(sign(λ[i]))]
+		for k = 1:3
+			Σ=0.0
+			for i = 1:3
+				s = Int(sign(λ[i]))
+				for j = 1:3
+					Σ += s*λ[i]*R[k, i]*L[i, j]*(U[j, l] - U[j, l-s])
+				end
+			end
+			UP[k, l] =U[k, l] - C*Σ
 		end
-		Λ= abs.(λ) |> diagm
-		UP[:, l] .= U[:, l] - C * R*Λ*L * D
 	end
 end
 
@@ -220,7 +250,7 @@ function problem1(C::AbstractFloat, f::Function, title::String; Δx::AbstractFlo
 	title = L"$m$"
 	# t=0.002
 	t=0.14
-	C = 0.2
+	C = 0.5/2
 	Δx= 2/261
 	Δt = Δx * C
 	f = upwind_non
@@ -230,8 +260,17 @@ function problem1(C::AbstractFloat, f::Function, title::String; Δx::AbstractFlo
 	for _ = 1:round(Int, t/Δt)
 		flg=update!(c, flg, f, C)
 	end
-	w=current(c, flg)
+	U=current(c, flg)
+	plt.plot(c.x, U[1, :], "-.b", linewidth=1)
+	plt.plot(c.x, U[2, :], "-.b", linewidth=1)
+	plt.plot(c.x, U[3, :], "-.b", linewidth=1)
+	# plt.plot(c.x, c.u[1, :], "-.k", linewidth=0.2, label="init")
+	plt.show()
+
+	w = U |> U2w
 	plt.plot(c.x, w[1, :], "-.b", linewidth=1)
+	plt.plot(c.x, w[2, :], "-.b", linewidth=1)
+	plt.plot(c.x, w[3, :], "-.b", linewidth=1)
 	# plt.plot(c.x, c.u[1, :], "-.k", linewidth=0.2, label="init")
 	plt.show()
 
