@@ -59,7 +59,7 @@
 \maketitle
 
 \begin{abstract}
-课程《磁流体力学的数值模拟方法》的第三次错也，讨论一维气体激波管问题的有限差分数值解法,分别使用守恒型方程的\textit{LaxWendroff}格式，非守恒型的\textit{Upwind}格式和\textit{Minmod}格式，通过理论分析和实验编程，讨论该方程的物理解和数值解的特性，并分析流体中不同波模的物理和数值特性。 
+课程《磁流体力学的数值模拟方法》的第三次作业，讨论一维气体激波管问题的有限差分数值解法,分别使用守恒型方程的\textit{LaxWendroff}格式，非守恒型的\textit{Upwind}格式和\textit{Minmod}格式，通过理论分析和实验编程，讨论该方程的物理解和数值解的特性，并分析流体中不同波模的物理和数值特性。 
 
 \end{abstract}
 
@@ -147,12 +147,12 @@ c^2 =& \gamma \frac{p}{\rho}.
 \subsection{非守恒形式}
 式~\eqref{Eqn:Euler} 的非守恒形式为
 \begin{align}
-\pdv{\vb*u}{t} + \vb*B \pdv{\vb*u}{x} = 0,
+\pdv{\vb u}{t} + \vb*B \vdot \pdv{\vb u}{x} = 0,
 \label{Eqn:Euler3}
 \end{align}
 其中
 \begin{align}
-\vb*u = [u_j] = \left[\begin{array}{c}\rho\\ u\\ p\end{array}\right], \vb*B = B_{ij} = \left[\begin{array}{ccc}u & \rho & 0\\
+\vb u = [u_j] = \left[\begin{array}{c}\rho\\ u\\ p\end{array}\right], \quad \vb*B = [B_{ij}] = \left[\begin{array}{ccc}u & \rho & 0\\
 0 & u & 1/\rho\\ 0 & \gamma p & u\end{array}\right]
 \end{align}
 此时方程~\eqref{Eqn:Euler2} 与方程~\eqref{Eqn:Euler3} 虽然形式看起来相同，
