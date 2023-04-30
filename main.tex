@@ -285,7 +285,7 @@ W_R, & \quad x > 0
     \end{array}\right]
 \end{align}
 \subsection{精确解格式}
-精确解由附件Hydrodynamics.xlsx中提供，其最终形式为分为五段的分段函数，具体形式如下
+精确解由附件 \verb|Hydrodynamics.xlsx| 中提供，其最终形式为分为五段的分段函数，具体形式如下
 \begin{align}
 \rho = \left\{ \begin{array}{ll}
 0.445, & \quad x < v_1 t \\
@@ -419,7 +419,7 @@ u_{k,l}^{n+1} &= u_{k,l}^n \\
 
 \begin{itemize}
 	\item
-Lax-Wendroff的实验格式如图~\ref{fig:lax_wendroff}~所示，
+\textit{Lax-Wendroff} 的实验格式如图~\ref{fig:lax_wendroff}~所示，
 由于有高阶补偿项，
 所以各物理量高度保持得很好，
 过渡区间宽度与解析解基本一致，
@@ -436,7 +436,7 @@ Lax-Wendroff的实验格式如图~\ref{fig:lax_wendroff}~所示，
 %如要求数值解的总变化不随时间增加(TVD性质)或在时间上保持有界(TVB性质)。
 \textit{TVD}的实验格式结果如图~\ref{fig:vanLeerA}~和图~\ref{fig:vanLeerB}~所示，
 通过要求数值解的总变化不随时间增加，
-就激波模拟而言 \textit{TVD} 格式比 \textit{UpWind} 格式存在一定的优势。且格点数为 133 的 TVD 格式(图~\ref{fig:vanLeerA})较格点数为 261 的 TVD 格式(图~\ref{fig:vanLeerB})间断点处更平滑无棱角。
+就激波模拟而言 \textit{TVD} 格式比 \textit{Upwind} 格式存在一定的优势。且格点数为 133 的 TVD 格式(图~\ref{fig:vanLeerA})较格点数为 261 的 TVD 格式(图~\ref{fig:vanLeerB})间断点处更平滑无棱角。
 
 \end{itemize}
 \section{分工说明}
