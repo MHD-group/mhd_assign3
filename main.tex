@@ -325,6 +325,10 @@ u_{k,l}^{n+1} &= u_{k,l}^n \\
 		0, \qif ab \leq 0.
 	\end{cases}
 \end{equation}
+我们发现由于 \textit{TVD} 格式较 \textit{Upwind} 格式而言会出现振荡，
+导致 \(\rho\) 或 \(p\) 出现负值，则在 \(a = \sqrt{\gamma \rho / p}\) 中根号下出现负值，
+我们调整 CFL 为 0.05 后进行了模拟，根号下便不再出现负值。
+
 \begin{figure}
 \begin{center}
 \includegraphics[width=.85\textwidth]{figures/limiter133.pdf}
@@ -361,9 +365,10 @@ Lax-Wendroff的实验格式如图~\ref{fig:lax_wendroff}~所示，
 \item
 \textit{TVD}的实验格式结果如图~\ref{fig:vanLeerA}~和图~\ref{fig:vanLeerB}~所示，
 由于 \textit{Minmod} 格式存在高阶补偿项，存在色散，能够较快速度将激波间隔缩小到2个左右的间隔距离，
-就激波模拟而言 \textit{Minmod} 格式存在一定的优势，
-横向比较色散效应，可以看到\textit{Upwind} 格式没有色散只有耗散，
-具体体现在波前有少量的振荡，同时在原本离散的阶跃处，产生了不应该存在的凸起部分。
+就激波模拟而言 \textit{Minmod} 格式比 \textit{UpWind} 格式存在一定的优势。
+\begin{itemize}
+	\item 格点数为 133 的 TVD 格式(图~\ref{fig:vanLeerA})较格点数为 261 的 TVD 格式(图~\ref{fig:vanLeerB})间断点处更平滑无棱角。
+\end{itemize}
 
 \end{itemize}
 \section{分工说明}
@@ -391,9 +396,9 @@ Lax-Wendroff的实验格式如图~\ref{fig:lax_wendroff}~所示，
 \verb|code/main.jl|
 --  徐均益编写的 julia 代码
 \item
-\verb|code/main.py|
+\verb|code/main.py| 和 
 \verb|code/run.sh|
---  余航编写的 python 代码和 bash 运行脚本
+--  分别是余航编写的 python 代码和 bash 运行脚本
 \item
 \verb|References.bib|
 --  文献文件
