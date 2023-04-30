@@ -151,17 +151,75 @@ end
 function upwind_non(UP::Matrix, U::Matrix, C::AbstractFloat)
 	for l in 2:size(U, 2)-1
 		λ= U[:, l] |> U2λ
-		R = U[:, l] |> U2R
-		L = U[:, l] |> U2L
+		Rm = U[:, l] |> U2R
+		Lm = U[:, l] |> U2L
 		for k = 1:3
 			Σ=0.0
 			for i = 1:3
 				s = λ[i] >= 0 ? 1 : -1
+				λp = U[:, l-s] |> U2λ
+				Λ = 0.5*(λ+λp)
+				Rp = U[:, l-s] |> U2R
+				R = 0.5*(Rm+Rp)
+				Lp = U[:, l-s] |> U2L
+				L = 0.5*(Lm+Lp)
 				for j = 1:3
-					Σ += s*λ[i]*R[k, i]*L[i, j]*(U[j, l] - U[j, l-s])
+					a = s*Λ[i]*R[k, i]*L[i, j]
+					Σ += a*(U[j, l] - U[j, l-s])
 				end
 			end
 			UP[k, l] =U[k, l] - C*Σ
+		end
+	end
+end
+
+function upwind_non0(UP::Matrix, U::Matrix, C::AbstractFloat)
+	for l in 2:size(U, 2)-1
+		λ= U[:, l] |> U2λ
+		Rm = U[:, l] |> U2R
+		Lm = U[:, l] |> U2L
+		for k = 1:3
+			Σ=0.0
+			for i = 1:3
+				s = λ[i] >= 0 ? 1 : -1
+				λp = U[:, l-s] |> U2λ
+				Rp = U[:, l-s] |> U2R
+				# R = 0.5*(Rm+Rp)
+				Lp = U[:, l-s] |> U2L
+				# L = 0.5*(Lm+Lp)
+				for j = 1:3
+					am = s*λ[i]*Rm[k, i]*Lm[i, j]
+					ap = s*λp[i]*Rp[k, i]*Lp[i, j]
+					a = 0.5*(am+ap)
+					Σ += a*(U[j, l] - U[j, l-s])
+				end
+			end
+			UP[k, l] =U[k, l] - C*Σ
+		end
+	end
+end
+
+function upwind(wp::Matrix, w::Matrix, C::AbstractFloat)
+	for l in 2:size(w, 2)-1
+		λ = w[:, l] |> w2λ
+		Rm = w[:, l] |> w2R
+		Lm = w[:, l] |> w2L
+		for k = 1:3
+			Σ=0.0
+			for i = 1:3
+				s = λ[i] >= 0 ? 1 : -1
+				λp = w[:, l-s] |> w2λ
+				Λ = 0.5*(λ+λp)
+				Rp = w[:, l-s] |> w2R
+				R = 0.5*(Rm+Rp)
+				Lp = w[:, l-s] |> w2L
+				L = 0.5*(Lm+Lp)
+				for j = 1:3
+					a = s*Λ[i]*R[k, i]*L[i, j]
+					Σ += a*(w[j, l] - w[j, l-s])
+				end
+			end
+			wp[k, l] =w[k, l] - C*Σ
 		end
 	end
 end
@@ -250,31 +308,6 @@ function upwind0(wp::Matrix, w::Matrix, C::AbstractFloat)
 	end
 end
 
-function upwind(wp::Matrix, w::Matrix, C::AbstractFloat)
-	for l in 2:size(w, 2)-1
-		λ = w[:, l] |> w2λ
-		for k = 1:3
-			Σ=0.0
-			for i = 1:3
-				s = λ[i] >= 0 ? 1 : -1
-				λp = w[:, l-s] |> w2λ
-				Λ = 0.5(λ+λp)
-				Rm = w[:, l] |> w2R
-				Rp = w[:, l-s] |> w2R
-				R = 0.5*(Rm+Rp)
-				Lm = w[:, l] |> w2L
-				Lp = w[:, l-s] |> w2L
-				L = 0.5*(Lm+Lp)
-				for j = 1:3
-					a = s*Λ[i]*R[k, i]*L[i, j]
-					Σ += a*(w[j, l] - w[j, l-s])
-				end
-			end
-			wp[k, l] =w[k, l] - C*Σ
-		end
-	end
-end
-
 function limiter0(wp::Matrix, w::Matrix, C::AbstractFloat)
 	for l in 3:size(w, 2)-2
 		λ = w[:, l] |> w2λ
@@ -327,9 +360,9 @@ function limiter(wp::Matrix, w::Matrix, C::AbstractFloat)
 				Lp = w[:, l-s] |> w2L
 				L = 0.5*(Lm+Lp)
 				for j = 1:3
-					a = s*Λ[i]*R[k, i]*L[i, j]
-					Σ += a*(w[j, l] - w[j, l-s])
-					Σ += 0.5a* (1 - a*C) *
+					a = Λ[i]*R[k, i]*L[i, j]
+					Σ += s*a*(w[j, l] - w[j, l-s])
+					Σ += 0.5s*a* (1 - a*C) *
 					( minmod(w[j, l]-w[j, l-1], w[j, l+1]-w[j,l]) -
 					 minmod(w[j,l-s]-w[j,l-s-1], w[j,l-s+1]-w[j,l-s]) )
 				end
@@ -481,7 +514,7 @@ C = 0.5
 Δt =  C * Δx
 
 # %%
-function problem1(C::AbstractFloat, f::Function, nx::Int = 261)
+function problem(C::AbstractFloat, f::Function, nx::Int = 261)
 
 	# title = L"$m$"
 	# t=0.002
@@ -540,35 +573,95 @@ function problem1(C::AbstractFloat, f::Function, nx::Int = 261)
 
 end
 # %%
+function problem_non(C::AbstractFloat, f::Function, nx::Int = 261)
 
-problem1(0.05, limiter)
+	# title = L"$m$"
+	# t=0.002
+	C_str=string(round(C, digits=3))
+	t=0.28
+	C = C/4.694
+	# C = 0.7/2.633
+	Δx= 2/nx
+	Δt = Δx * C
+	# f = limiter
+	c=Cells(step=Δx, init=init_non)
+	title = f |> f2title
+	fig, ax=plt.subplots(3,1, figsize=(12,13))
+	fig.suptitle("t = "*string(t)*"    "*"C = "*C_str*"    "*title, fontsize=16)
+	ax[1].plot(c.x, c.u[1, :], "-.k", linewidth=0.2, label=L"$\rho$(初始值)")
+	ax[3].plot(c.x, c.u[2, :], "-.k", linewidth=0.2, label=L"$m$(初始值)")
+	ax[2].plot(c.x, c.u[3, :], "-.k", linewidth=0.2, label=L"$E$(初始值)")
+
+	flg=true # flag
+	for _ = 1:round(Int, t/Δt)
+		flg=update!(c, flg, f, C)
+	end
+	U=current(c, flg)
+	w = U |> U2w
+	tw=similar(w)
+	true_sol(c.x, tw, t)
+
+
+	ax[1].plot(c.x, tw[1, :], linewidth=1, color="k", label=L"$\rho$(真实解)", alpha=0.5)
+	ax[1].plot(c.x, w[1, :], "--b", linewidth=1, marker="o", markeredgewidth=0.4, markersize=4,  markerfacecolor="none", label=L"$\rho$(数值解)")
+	ax[1].set_title("密度", fontsize=14)
+	ax[1].legend()
+	ax[3].plot(c.x, tw[2, :], linewidth=1, color="k", label=L"$m$(真实解)", alpha=0.5)
+	ax[3].plot(c.x, w[2, :], "--r", linewidth=1, marker="o", markeredgewidth=0.4, markersize=4,  markerfacecolor="none", label=L"$m$(数值解)")
+	ax[2].set_title("质量流", fontsize=14)
+	ax[3].legend()
+	ax[2].plot(c.x, tw[3, :], linewidth=1, color="k", label=L"$E$(真实解)", alpha=0.5)
+	ax[2].plot(c.x, w[3, :], "--y", linewidth=1, marker="o", markeredgewidth=0.4, markersize=4,  markerfacecolor="none", label=L"$E$(数值解)")
+	ax[3].set_title("能量", fontsize=14)
+	ax[2].legend()
+
+	# plot(c.x, circshift(w, (0, 3)), tw)
+
+	# # plt.plot(c.x, c.u[1, :], "-.k", linewidth=0.2, label="init")
+	# w = U |> U2w
+
+	# plt.plot(x, w[1, :], linewidth=1, color="b", label="Density")
+	# plt.plot(x, w[2, :], linewidth=1, color="r", label="m")
+	# plt.plot(x, w[3, :], linewidth=1, color="y", label="E")
+	# # plt.plot(c.x, c.u[1, :], "-.k", linewidth=0.2, label="init")
+	# plt.show()
+
+	# plt.title("time = "*string(t)*", "*"C = "*string(C)*", "* title )
+	# # plt.plot(c.x, c.up, linestyle="dashed", linewidth=0.4, marker="o", markeredgewidth=0.4, markersize=4,  markerfacecolor="none", label="up")
+	plt.savefig("../figures/"*string(f)*string(nx)*".pdf", bbox_inches="tight")
+	# plt.show()
+
+end
+# %%
+
+problem(0.18, limiter)
 # problem1(0.18, limiter)
 plt.show()
 
-problem1(0.05, limiter0, 133)
+problem(0.05, limiter, 133)
 plt.show()
 
-problem1(0.5, lax_wendroff)
+problem(0.5, lax_wendroff)
 plt.show()
 
 
-problem1(0.5, upwind0)
+problem_non(0.5, upwind_non)
+plt.show()
+
 # problem1(0.5, upwind)
-# problem1(0.5, upwind00)
+
+problem(0.5, upwind)
 plt.show()
 
 # %%
 
 function main()
-	problem1(0.05, upwind, "Upwind")
-	problem1(0.5, upwind, "Upwind")
-	problem1(0.95, upwind, "Upwind")
-	problem1(1.0, upwind, "Upwind")
-	problem1(0.95, lax_wendroff, "Lax-Wendroff")
-	problem1(0.95, limiter, "Minmod")
-	# problem2(0.25)
-	# problem2(0.5)
-	# problem2(0.75)
-	# problem2(1.0)
+	problem(0.05, limiter)
+	# problem1(0.18, limiter)
+	problem(0.05, limiter, 133)
+	problem(0.5, lax_wendroff)
+	problem_non(0.1, upwind_non)
+	problem(0.5, upwind)
+	plt.show()
 end
 main()
