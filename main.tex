@@ -218,10 +218,10 @@ u_{k,l}^{n+1} =& u_{k,l}^n \nonumber\\
 由式~\eqref{eq:8} 可得
 \begin{equation}
 	\begin{aligned}
-		&\lambda_1 = u - a, \quad &\lambda_2  = u, \quad &\lambda_3 = u + a, \\
+		&\lambda_1 = u - a, \qquad \lambda_2  = u, \qquad \lambda_3 = u + a, \\
 		&r_1 = \mqty[- \rho / a \\ 1 \\ -\rho a], \quad
-		&r_2 = \mqty[1 \\ 0 \\ 0], \qquad
-		&r_3 = \mqty[\rho / a \\ 1 \\ -\rho a],
+		r_2 = \mqty[1 \\ 0 \\ 0], \quad
+		r_3 = \mqty[\rho / a \\ 1 \\ -\rho a],
 	\end{aligned}
 \end{equation}
 其中 $a$ 是声速。更有趣的是我们可以对特征值求梯度，我们发现第二个特征场是线性退化的，第一个和第三个特征场是非线性的：
@@ -377,10 +377,10 @@ u_{k,l}^{n+1} &= u_{k,l}^n \\
 \end{equation}
 其中
 \begin{equation}
-	\sigma_i^n = \verb|Minmod| \left( \frac{u_i^n - u_{i-1}^{n}}{ \Delta x }, \frac{u_{i+1}^n - u_{i}^{n}}{ \Delta x } \right),
+	\sigma_i^n = \operatorname{Minmod} \left( \frac{u_i^n - u_{i-1}^{n}}{ \Delta x }, \frac{u_{i+1}^n - u_{i}^{n}}{ \Delta x } \right),
 \end{equation}
 \begin{equation}
-	\verb|Minmod|(a, b) = 
+	\operatorname{Minmod}(a, b) = 
 	\begin{cases}
 		a, \qif |a| < |b| \qand ab > 0\\
 		b, \qif |a| > |b| \qand ab > 0\\
