@@ -271,12 +271,14 @@ A_{j \pm 1/2}^n = A(u_{j \pm 1/2}^n), \qquad u_{j \pm 1/2}^n = \frac{1}{2} (u_j^
 \begin{center}
 \includegraphics[width=.85\textwidth]{figures/lax_wendroff261.pdf}
 \caption{Lax-Wendroff 格式计算结果, 网格点数为 261. \textbf{从上到下分别是密度 $\rho$, 能量 $E$ 和质量流 $m = \rho u$.}
-其中点线是初值, 虚线 (上面的数据点用符号 $\circ$ 标注) 是 $t=0.14$ 时的数值结果, 实线是对应的真实解.}\label{Fig:Upwind}
+其中点线是初值, 虚线 (上面的数据点用符号 $\circ$ 标注) 是 $t=0.14$ 时的数值结果, 实线是对应的真实解.}\label{fig:lax_wendroff}
 \end{center}
 \end{figure}
 \subsubsection{\textit{Lax-Wendroff}实验结果分析与对比}
-（此处由徐均益填写）
-Lax-Wendroff的实验格式为，实验结果现象为，可以用item列出来
+Lax-Wendroff的实验格式如图~\ref{fig:lax_wendroff}~所示，
+各物理量高度保持得很好，
+过渡区间宽度与解析解基本一致，
+但出现的色散 (上冲和下冲)，在间断处出现振荡。
 \subsection{\textit{Upwind}格式}
 \textit{Upwind}格式既适用于守恒型方程，也适用于非守恒方程，本实验设计使用非守恒方程
 \begin{align}
@@ -294,13 +296,13 @@ u_{k,l}^{n+1} =& u_{k,l}^n \nonumber\\
 \begin{center}
 \includegraphics[width=.85\textwidth]{figures/upwind261.pdf}
 \caption{迎风格式计算结果, 网格点数为 261. \textbf{从上到下分别是密度 $\rho$, 能量 $E$ 和质量流 $m = \rho u$.}
-其中点线是初值, 虚线 (上面的数据点用符号 $\circ$ 标注) 是 $t=0.14$ 时的数值结果, 实线是对应的真实解.}\label{Fig:Upwind}
+其中点线是初值, 虚线 (上面的数据点用符号 $\circ$ 标注) 是 $t=0.14$ 时的数值结果, 实线是对应的真实解.}\label{fig:Upwind}
 \end{center}
 \end{figure}
 
 \subsubsection{\textit{Upwind}实验结果分析与对比}
-（此处由徐均益填写）
-\textit{Upwind}的实验格式为，实验结果现象为，可以用item列出来
+\textit{Upwind}的实验格式结果如图~\ref{fig:Upwind}~所示，
+物理量随着波的传播被逐渐抹平，过渡区间宽度较长。
 \subsection{\textit{TVD}格式}
 \textit{TVD}格式适用于非守恒方程
 \begin{align}
@@ -334,27 +336,29 @@ u_{k,l}^{n+1} &= u_{k,l}^n \\
 \begin{figure}
 \begin{center}
 \includegraphics[width=.85\textwidth]{figures/limiter133.pdf}
-\caption{(van Leer) TVD 格式计算结果, 网格点数为 133. 其他标注同图~\ref{Fig:Upwind}.}\label{Fig:vanLeerA}
+\caption{(van Leer) TVD 格式计算结果, 网格点数为 133. 其他标注同图~\ref{fig:Upwind}.}\label{fig:vanLeerA}
 \end{center}
 \end{figure}
 
 \begin{figure}
 \begin{center}
 \includegraphics[width=.85\textwidth]{figures/limiter261.pdf}
-\caption{(van Leer) TVD 格式计算结果, 网格点数为 261. 其他标注同图~\ref{Fig:Upwind}.}\label{Fig:vanLeerB}
+\caption{(van Leer) TVD 格式计算结果, 网格点数为 261. 其他标注同图~\ref{fig:Upwind}.}\label{fig:vanLeerB}
 \end{center}
 \end{figure}
 \subsubsection{\textit{TVD}实验结果分析与对比}
-（此处由徐均益填写，并且请根据代码中的公司在上方MinMod公式处进行修改）
-\textit{TVD}的实验格式为，实验结果现象为，可以用item列出来
-
+\textit{TVD}的实验格式结果如图~\ref{fig:vanLeerA}~和图~\ref{fig:vanLeerB}~所示，
+由于 \textit{Minmod} 格式存在高阶补偿项，存在色散，能够较快速度将激波间隔缩小到2个左右的间隔距离，
+就激波模拟而言 \textit{Minmod} 格式存在一定的优势，
+横向比较色散效应，可以看到\textit{Upwind} 格式没有色散只有耗散，
+具体体现在波前有少量的振荡，同时在原本离散的阶跃处，产生了不应该存在的凸起部分。
 \subsection{实验结果分析与对比}
 （此处由徐均益填写，对比三个方法的图，得出一定的结论与思考）
 %设计两到三种有限差分格式, 编程进行数值计算, 给出图形, 比较和讨论结果. 或者, 利用附件中的 Excel 表格, 生成别的初值条件及解, 对流体力学中的间断问题进行数值计算并作进一步的讨论.
 
-%作为参考, 这里给出三个算例, CFL 系数均取 0.5, $t=0.14$ 时刻的数值的计算结果. 迎风格式, 261 网格的数据如图~\ref{Fig:Upwind},
-%TVD (Total Variation Diminishing) 格式 \citep{vanLeer1974,Harten1983}, 133 网格的数据如图~\ref{Fig:vanLeerA}, 以及 TVD 格式, 261
-%网格的数据如图~\ref{Fig:vanLeerB}. 供大家参考.
+%作为参考, 这里给出三个算例, CFL 系数均取 0.5, $t=0.14$ 时刻的数值的计算结果. 迎风格式, 261 网格的数据如图~\ref{fig:Upwind},
+%TVD (Total Variation Diminishing) 格式 \citep{vanLeer1974,Harten1983}, 133 网格的数据如图~\ref{fig:vanLeerA}, 以及 TVD 格式, 261
+%网格的数据如图~\ref{fig:vanLeerB}. 供大家参考.
 
 
 
