@@ -274,11 +274,6 @@ A_{j \pm 1/2}^n = A(u_{j \pm 1/2}^n), \qquad u_{j \pm 1/2}^n = \frac{1}{2} (u_j^
 其中点线是初值, 虚线 (上面的数据点用符号 $\circ$ 标注) 是 $t=0.14$ 时的数值结果, 实线是对应的真实解.}\label{fig:lax_wendroff}
 \end{center}
 \end{figure}
-\subsubsection{\textit{Lax-Wendroff}实验结果分析与对比}
-Lax-Wendroff的实验格式如图~\ref{fig:lax_wendroff}~所示，
-各物理量高度保持得很好，
-过渡区间宽度与解析解基本一致，
-但出现的色散 (上冲和下冲)，在间断处出现振荡。
 \subsection{\textit{Upwind}格式}
 \textit{Upwind}格式既适用于守恒型方程，也适用于非守恒方程，本实验设计使用非守恒方程
 \begin{align}
@@ -300,9 +295,6 @@ u_{k,l}^{n+1} =& u_{k,l}^n \nonumber\\
 \end{center}
 \end{figure}
 
-\subsubsection{\textit{Upwind}实验结果分析与对比}
-\textit{Upwind}的实验格式结果如图~\ref{fig:Upwind}~所示，
-物理量随着波的传播被逐渐抹平，过渡区间宽度较长。
 \subsection{\textit{TVD}格式}
 \textit{TVD}格式适用于非守恒方程
 \begin{align}
@@ -346,14 +338,8 @@ u_{k,l}^{n+1} &= u_{k,l}^n \\
 \caption{(van Leer) TVD 格式计算结果, 网格点数为 261. 其他标注同图~\ref{fig:Upwind}.}\label{fig:vanLeerB}
 \end{center}
 \end{figure}
-\subsubsection{\textit{TVD}实验结果分析与对比}
-\textit{TVD}的实验格式结果如图~\ref{fig:vanLeerA}~和图~\ref{fig:vanLeerB}~所示，
-由于 \textit{Minmod} 格式存在高阶补偿项，存在色散，能够较快速度将激波间隔缩小到2个左右的间隔距离，
-就激波模拟而言 \textit{Minmod} 格式存在一定的优势，
-横向比较色散效应，可以看到\textit{Upwind} 格式没有色散只有耗散，
-具体体现在波前有少量的振荡，同时在原本离散的阶跃处，产生了不应该存在的凸起部分。
 \subsection{实验结果分析与对比}
-（此处由徐均益填写，对比三个方法的图，得出一定的结论与思考）
+
 %设计两到三种有限差分格式, 编程进行数值计算, 给出图形, 比较和讨论结果. 或者, 利用附件中的 Excel 表格, 生成别的初值条件及解, 对流体力学中的间断问题进行数值计算并作进一步的讨论.
 
 %作为参考, 这里给出三个算例, CFL 系数均取 0.5, $t=0.14$ 时刻的数值的计算结果. 迎风格式, 261 网格的数据如图~\ref{fig:Upwind},
@@ -361,32 +347,73 @@ u_{k,l}^{n+1} &= u_{k,l}^n \\
 %网格的数据如图~\ref{fig:vanLeerB}. 供大家参考.
 
 
+\begin{itemize}
+	\item
+Lax-Wendroff的实验格式如图~\ref{fig:lax_wendroff}~所示，
+各物理量高度保持得很好，
+过渡区间宽度与解析解基本一致，
+但出现的色散 (上冲和下冲)，在间断处出现振荡。
 
+\item
+\textit{Upwind}的实验格式结果如图~\ref{fig:Upwind}~所示，
+物理量随着波的传播被逐渐抹平，过渡区间宽度较长。
 
+\item
+\textit{TVD}的实验格式结果如图~\ref{fig:vanLeerA}~和图~\ref{fig:vanLeerB}~所示，
+由于 \textit{Minmod} 格式存在高阶补偿项，存在色散，能够较快速度将激波间隔缩小到2个左右的间隔距离，
+就激波模拟而言 \textit{Minmod} 格式存在一定的优势，
+横向比较色散效应，可以看到\textit{Upwind} 格式没有色散只有耗散，
+具体体现在波前有少量的振荡，同时在原本离散的阶跃处，产生了不应该存在的凸起部分。
+
+\end{itemize}
 \section{分工说明}
 余航编写了代码main.py与run.sh,徐均益编写了main.jl，两人独立实现了守恒形式与非守恒形式的数值代码编写并共同调试，还包括\textit{Minmod}等满足TVD的限制器格式。
  余航、徐均益、陈宇韬进行了文档编写和校验。
 \section{附件}
 
 \begin{enumerate}
+% \verb|code/Upwind格式svd验证.nb|
+% \verb|figures/lax_wendroff261.pdf|
+% \verb|figures/limiter0133.pdf|
+% \verb|figures/limiter0261.pdf|
+% \verb|figures/upwind00261.pdf|
+% \verb|figures/upwind0261.pdf|
+% \verb|figures/upwind_non0261.pdf|
+% \verb|figures/upwind_non261.pdf|
+
 \item
-assign3.tex--本报告 \LaTeX  文件.
+\verb|main.tex|
+-- 本报告 \LaTeX  文件.
 \item
-assign3.pdf--本报告 PDF 输出文件.
+\verb|main.pdf|
+-- 本报告 PDF 输出文件.
 \item
-References.bib -- 文献文件
+\verb|code/main.jl|
+--  徐均益编写的 julia 代码
 \item
-GasUpwind261.eps--迎风格式计算结果, 261 网格.
+\verb|code/main.py|
+\verb|code/run.sh|
+--  余航编写的 python 代码和 bash 运行脚本
 \item
-GasvanLeer133.eps--van Leer TVD 格式计算结果, 133 网格.
+\verb|References.bib|
+--  文献文件
 \item
-GasvanLeer261.eps--van Leer TVD 格式计算结果, 261 网格.
+\verb|figures/upwind261.pdf|
+-- 迎风格式计算结果, 261 网格.
 \item
-Hydrodynamics.xlsx--相关问题 Excel 计算表格, 深绿色单元为输入, 可以变更, 供大家参考. 其中
+\verb|figures/limiter133.pdf|
+-- van Leer TVD 格式计算结果, 133 网格.
+\item
+\verb|figures/limiter261.pdf|
+-- van Leer TVD 格式计算结果, 261 网格.
+\item
+\verb|Hydrodynamics.xlsx|
+-- 相关问题 Excel 计算表格, 深绿色单元为输入, 可以变更. 其中
+
 \begin{enumerate}
 \item
-  Riemann 表格中, B2 为 $\gamma$ 值, B4--B6 和 E4--E6 分别是左侧和右侧的密度, 质量流及能量的初值. A25--A26 迭代用值, A24 为 A25 和 A26 的平均值.
-  22 行复制 24 行的值. 当 G24, 即 G22 值为零时, 得到此 Riemann 问题的解. N3 为时间值, 密度, 质量流及能量图形的坐标初值和对应比例分别由 N4--N6 和 O4--O6 调节.
+  Riemann 表格中, B2 为 $\gamma$ 值, B4-- B6 和 E4--E6 分别是左侧和右侧的密度, 质量流及能量的初值. A25--A26 迭代用值, A24 为 A25 和 A26 的平均值.
+  22 行复制 24 行的值. 当 G24, 即 G22 值为零时, 得到此 Riemann 问题的解. N3 为时间值, 密度, 质量流及能量图形的坐标初值和对应比例分别由 N4-- N6 和 O4--O6 调节.
 \item
 Hydrodynamics 表格为对应守恒型方程的矩阵特征值, 左右特征向量, 变量在各个波模的分解, 等等. 这些可以用于检查后续高精度格式计算的一些中间结果是否正确.
 \end{enumerate}
