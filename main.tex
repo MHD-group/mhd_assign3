@@ -64,7 +64,18 @@
 \end{abstract}
 
 \section{引言}
-一维气体激波管问题是计算流体力学中的经典问题，也是为数不多的存在精确解的问题，常用来检测算例来检验数值格式，这使得学习研究和在此类问题上实现各种数值方法具有现实意义。同时一维气体激波管所使用的物理定理为连续性方程、动量方程、能量方程，可以写成三个守恒形式的方程，也意味着取合适的迭代矩阵，能使其数学描述为双曲守恒形式。可以验证各种方法在守恒形式和非守恒形式下的异同。本次作业只考虑无粘滞的理想气体状态方程下的一维激波问题。
+一维气体激波管问题是计算流体力学中的经典问题，也是为数不多的存在精确解的问题，
+常以此算例检测数值格式，
+% 常用来检测算例来检验数值格式，
+% 这使得学习研究和在此类问题上实现各种数值方法具有现实意义。
+方便我们进一步学习研究各种数值方法，
+同时一维气体激波管所使用的物理方程为连续性方程、动量方程、能量方程，
+% 可以写成三个守恒形式的方程，也意味着取合适的迭代矩阵，能使其数学描述为双曲守恒形式。
+可以写成守恒形式，
+% 也意味着选择合适的迭代矩阵，能使其数学描述为双曲守恒形式。
+也意味着选择合适的迭代矩阵，能够化为双曲守恒形式。
+可以检验各种方法在守恒形式和非守恒形式下的异同。
+本次作业只考虑无粘滞的理想气体状态方程下的一维激波问题。
 
 \section{理论基础介绍}
 \subsection{守恒形式}
@@ -98,7 +109,9 @@ m =& \rho u,
 \\
 p =& (\gamma - 1)(E - \frac{1}{2} \rho u^2).
 \end{align}
-这里, $\rho$, $u$, $p$ 和 $E$ 分别是密度, 速度, 压力和总能量. 其对应的三个方程分别为质量守恒方程，动量守恒方程和能量守恒方程。守恒形式可以采用\textit{LaxWendroff}格式设计实验。
+这里, $\rho$, $m$ 和 $E$ 分别是密度, 质量流和能量. 
+其对应的三个方程分别为质量守恒方程，动量守恒方程和能量守恒方程。
+守恒形式可以采用\textit{LaxWendroff}格式设计实验。
 
 \subsubsection{特征向量计算}\label{Appendix}
 将方程~\eqref{Eqn:Euler} 可以写成如下形式
@@ -154,13 +167,16 @@ c^2 =& \gamma \frac{p}{\rho}.
 \begin{align}
 \vb u = [u_j] = \left[\begin{array}{c}\rho\\ u\\ p\end{array}\right], \quad \vb*B = [B_{ij}] = \left[\begin{array}{ccc}u & \rho & 0\\
 0 & u & 1/\rho\\ 0 & \gamma p & u\end{array}\right]
+\label{eq:8}
 \end{align}
 此时方程~\eqref{Eqn:Euler2} 与方程~\eqref{Eqn:Euler3} 虽然形式看起来相同，
 同时代入后得到的三个方程也相同，
 但是因为方程~\eqref{Eqn:Euler2} 形式上可以化成守恒形式~\eqref{Eqn:Euler}，
 而方程~\eqref{Eqn:Euler3} 无法直接化成守恒形式。
 
-其中，矩阵 $\vb*B$ 的特征值为 $u-a$, $u$, $u+a$ ($a^2 = \gamma p/\rho$), 对应的左右特征向量矩阵为 $\vb*L$ 和 $\vb*R$ 写为
+其中，矩阵 $\vb*B$ 的特征值为 $u-a$, $u$, $u+a$ ($a^2 = \gamma p/\rho$), 
+% 物理量可以以流体速度或者相对于流体速度为\(\pm a\)速度传播，
+对应的左右特征向量矩阵为 $\vb*L$ 和 $\vb*R$ 写为
 \begin{align}
 \vb*L =& [L_{ij}] = \left[\begin{array}{ccc}0 & -\rho a & 1\\ a^2 & 0 & -1\\ 0 & \rho a & 1\end{array}\right],
 \\
@@ -175,8 +191,9 @@ x}\right\} = 0,
 其中
 \begin{align}
 \lambda_i =
-\left[\begin{array}{c}u-a \\ u\\ u+a\end{array}\right]
+\left[\begin{array}{c}u-a \\ u\\ u+a\end{array}\right].
 \end{align}
+
 在变换回原变量方程的形式, 即
 \begin{align}
 \sum_i \sum_j \left\{R_{ki} L_{ij} \frac{\partial u_j}{\partial t} + R_{ki} \lambda_i L_{ij}
@@ -197,6 +214,51 @@ u_{k,l}^{n+1} =& u_{k,l}^n \nonumber\\
 
 对于非守恒方程可以用迎风格式和\textit{minmod}格式。
 
+\subsection{波模分析}
+由式~\eqref{eq:8} 可得
+\begin{equation}
+	\begin{aligned}
+		&\lambda_1 = u - a, \quad &\lambda_2  = u, \quad &\lambda_3 = u + a, \\
+		&r_1 = \mqty[- \rho / a \\ 1 \\ -\rho a], \quad
+		&r_2 = \mqty[1 \\ 0 \\ 0], \qquad
+		&r_3 = \mqty[\rho / a \\ 1 \\ -\rho a],
+	\end{aligned}
+\end{equation}
+其中 $a$ 是声速。更有趣的是我们可以对特征值求梯度，我们发现第二个特征场是线性退化的，第一个和第三个特征场是非线性的：
+
+\begin{equation}
+	\begin{aligned}
+		&\grad \lambda_1 = 
+		\mqty[ -\pdv*{c}{\rho} \\ 1 \\ -\pdv*{c}{\rho} ]
+		=
+		\mqty[ c / 2\rho \\ 1 \\ - c / 2\rho ]
+		\implies
+		\grad \lambda_1 \vdot r_1 = \frac{1}{2} (\gamma +1) \\
+		&\grad \lambda_2 = 
+		\mqty[ 0 \\ 1 \\ 0 ]
+		\implies
+		\grad \lambda_2 \vdot r_2 = 0 \\
+		&\grad \lambda_3 = 
+		\mqty[ \pdv*{c}{\rho} \\ 1 \\ \pdv*{c}{\rho} ]
+		=
+		\mqty[ - c / 2\rho \\ 1 \\  c / 2\rho ]
+		\implies
+		\grad \lambda_3 \vdot r_3 = \frac{1}{2} (\gamma +1)
+	\end{aligned}
+\end{equation}
+第二个特征场中的简单波由密度变化组成，它们以恒定的速度u平流，因为在这样的波中u和p必须是恒定的。这种波通常被称为熵波，因为熵满足平流方程:
+\begin{equation}
+	s_t + u s_x = 0,
+\end{equation}
+如果p恒定，熵随密度变化。
+% 对于黎曼问题，
+% 第二个场对应于第13.12节所述的接触不连续面，
+% 两种初始气体在接触不连续面上。
+% 第一族或第三族的简单波会变形，
+% 因为A和A3沿着这些族的积分曲线变化，锐化为冲击或作为稀有波扩散。
+
+第一支和第三支的简单波会变形，因为$\lambda_1$和\(\lambda_3\)沿着这些波的积分曲线变化，
+锐化为冲击波或稀有波扩散。
 \section{实验与结果分析}
 \subsection{初始值设计}
 对方程
@@ -350,30 +412,36 @@ u_{k,l}^{n+1} &= u_{k,l}^n \\
 %TVD (Total Variation Diminishing) 格式 \citep{vanLeer1974,Harten1983}, 133 网格的数据如图~\ref{fig:vanLeerA}, 以及 TVD 格式, 261
 %网格的数据如图~\ref{fig:vanLeerB}. 供大家参考.
 
+高阶精度与数值振荡是无法调和的两个对立面，
+高阶相容的线性格式必定存在负系数, 数值振荡现象不可避免。
+% 例1 LW格式、蛙跳格式、盒子格式都是高阶相容的, 不是单调格式, 由Godunov定理, 数值解会有数值振荡现象.
+% 例2 迎风格式与Lax格式都是一阶相容, 在CFL条件下, 它们都是单调格式, 不会出现数值振荡.
 
 \begin{itemize}
 	\item
 Lax-Wendroff的实验格式如图~\ref{fig:lax_wendroff}~所示，
-各物理量高度保持得很好，
+由于有高阶补偿项，
+所以各物理量高度保持得很好，
 过渡区间宽度与解析解基本一致，
 但出现的色散 (上冲和下冲)，在间断处出现振荡。
 
 \item
 \textit{Upwind}的实验格式结果如图~\ref{fig:Upwind}~所示，
-物理量随着波的传播被逐渐抹平，过渡区间宽度较长。
+\textit{Upwind}格式是一阶相容的, 在 CFL 条件下, 它们是单调格式, 不会出现数值振荡.
+故物理量随着波的传播被逐渐抹平，过渡区间宽度较长。
 
 \item
+%制这些振荡的一种常见方法是，其应用，使该方法非线性，即使是线性问题。
+%为了证明非线性方法的收敛性，通常还需要寻找某种形式的非线性稳定性，
+%如要求数值解的总变化不随时间增加(TVD性质)或在时间上保持有界(TVB性质)。
 \textit{TVD}的实验格式结果如图~\ref{fig:vanLeerA}~和图~\ref{fig:vanLeerB}~所示，
-由于 \textit{Minmod} 格式存在高阶补偿项，存在色散，能够较快速度将激波间隔缩小到2个左右的间隔距离，
-就激波模拟而言 \textit{Minmod} 格式比 \textit{UpWind} 格式存在一定的优势。
-\begin{itemize}
-	\item 格点数为 133 的 TVD 格式(图~\ref{fig:vanLeerA})较格点数为 261 的 TVD 格式(图~\ref{fig:vanLeerB})间断点处更平滑无棱角。
-\end{itemize}
+通过要求数值解的总变化不随时间增加，
+就激波模拟而言 \textit{TVD} 格式比 \textit{UpWind} 格式存在一定的优势。且格点数为 133 的 TVD 格式(图~\ref{fig:vanLeerA})较格点数为 261 的 TVD 格式(图~\ref{fig:vanLeerB})间断点处更平滑无棱角。
 
 \end{itemize}
 \section{分工说明}
-余航编写了代码main.py与run.sh,徐均益编写了main.jl，两人独立实现了守恒形式与非守恒形式的数值代码编写并共同调试，还包括\textit{Minmod}等满足TVD的限制器格式。
- 余航、徐均益、陈宇韬进行了文档编写和校验。
+余航编写了代码 \verb|main.py| 与 \verb|run.sh|，徐均益编写了 \verb|main.jl|，两人各自独立实现了 Lax-Wendroff 格式，迎风格式及满足TVD的限制器格式。
+余航完成了文档初稿，陈宇韬进行了文档编写和校验。
 \section{附件}
 
 \begin{enumerate}
