@@ -27,6 +27,19 @@ function minmod(a::AbstractFloat, b::AbstractFloat)::AbstractFloat
 	return 0
 end
 
+function Minmod(a::AbstractFloat, b::AbstractFloat)::AbstractFloat
+	a <= 0.0 ? 0.0 : sign(a)*min(abs(a), abs(b))
+end
+
+
+function Minmod(a::AbstractVector, b::AbstractVector)::AbstractVector
+	rst = similar(a);
+	for i in eachindex(a)
+		rst[i] = a[i] <= 0.0 ? 0.0 : sign(a[i])*min(abs(a[i]), abs(b[i]))
+	end
+	return rst
+end
+
 function w2U(w::Vector)::Vector
 	u=similar(w)
 	u[1] = w[1]
@@ -137,14 +150,154 @@ end
 w2λ(w::Vector)::Vector = w |> w2U |> U2λ
 
 function lax_wendroff(wp::Matrix, w::Matrix, C::AbstractFloat)
-for l in 2:size(w, 2)-1
-	Am = 0.5*(w[:, l]+w[:, l-1]) |> w2A
-	Ap = 0.5*(w[:, l]+w[:, l+1]) |> w2A
-	Fm = w[:, l-1] |> w2F
-	Fp = w[:, l+1] |> w2F
+	for l in 2:size(w, 2)-1
+		Am = 0.5*(w[:, l]+w[:, l-1]) |> w2A
+		Ap = 0.5*(w[:, l]+w[:, l+1]) |> w2A
+		Fm = w[:, l-1] |> w2F
+		Fp = w[:, l+1] |> w2F
+		F = w[:, l] |> w2F
+		wp[:, l] .= w[:, l] - 0.5C*(Fp - Fm) +
+		0.5C^2*(Ap*(Fp-F) - Am * (F-Fm))
+	end
+end
+
+function ygs(up::CircularVector, u::CircularVector, C::AbstractFloat)
+	n = length(u)
+	cc = zeros(n)
+	for i in eachindex(cc)
+		cc[i] = 0.5*C*(u[i] + u[i-1])
+	end
+	A=Matrix(Tridiagonal(-cc[2:end], cc.+1, repeat([0.0], n-1)))
+	A[1, n] = -cc[1]
+	up .=  A \ u
+end
+
+function ygs(wp::Matrix, w::Matrix, C::AbstractFloat)
+	v_left = ones(3)
+	v_mid
+	v_right
+	Tridiagonal()
+	for l in 2:size(w, 2)-1
+		Am = 0.5*(w[:, l]+w[:, l-1]) |> w2A
+		Ap = 0.5*(w[:, l]+w[:, l+1]) |> w2A
+		Fm = w[:, l-1] |> w2F
+		Fp = w[:, l+1] |> w2F
+		F = w[:, l] |> w2F
+		wp[:, l] .= w[:, l] - 0.5C*(Fp - Fm) +
+		0.5C^2*(Ap*(Fp-F) - Am * (F-Fm))
+	end
+end
+
+# λ=[1,2,3.]
+# w = [1 2 3; 2 2 4]'
+# Δw = [0, 3, 5.]
+
+# l = 1
+
+Q(x) = abs(x) > 0.2 ? abs(x) : x^2/0.4 + 0.1
+
+function testfor()
+	last_i = 0
+	for i = 1:3
+		print(last_i-i)
+		last_i = i
+	end
+end
+
+function testfor()
+	last_a = 0
+	global b = 0
+	for i = 1:3
+		a = i
+		global b = last_a - a
+		last_a = a
+	end
+	@show b
+end
+
+
+
+
+
+function TVD(wp::Matrix, w::Matrix, C::AbstractFloat)
+	gt_ = [0., 0, 0]# last g_tilde
+	for l in 2:size(w, 2)-1
+		Lm = w[:, l] |> w2L
+		Lp = w[:, l+1] |> w2L
+		L = 0.5*(Lm + Lp) # L_{j+1/2}
+		Δw = (w[:, l+1] - w[:, l])
+		α = L * Δw # α 是 3x1 向量
+		λ = w[:, l] |> w2λ
+		ν = simliar(λ)
+		g = simliar(λ)
+		gt = simliar(λ) # g_tilde
+		a = (w2F(w[:, l+1]) - w2F(w[:, l]))
+		for k in 1:3
+			Δw[k] == 0 && a[k] = λ[k] || a[k] /= Δw[k] # a 是 3x1 向量
+			ν = C*a[k]
+			gt[k] = 0.5*(Q(ν)-ν^2)*α[k] # g_tilde
+			s = sign(gt[k])
+			g[k] = s * max(0, min(abs(gt[k]), gt_[k] * s))
+			gt_[k] = gt[k]
+		end
+
+
+		Ap = 0.5*(w[:, l]+w[:, l+1]) |> w2A
+		Fm = w[:, l-1] |> w2F
+		Fp = w[:, l+1] |> w2F
+		F = w[:, l] |> w2F
+		wp[:, l] .= w[:, l] - 0.5C*(Fp - Fm) +
+		0.5C^2*(Ap*(Fp-F) - Am * (F-Fm))
+	end
+end
+
+function limiter(wp::Matrix, w::Matrix, C::AbstractFloat)
+	for l in 3:size(w, 2)-2
+		λ= w[:, l] |> w2λ
+		# R = w[:, l] |> w2R
+		# L = w[:, l] |> w2L
+		for k = 1:3
+			Σ=0.0
+			for i = 1:3
+				s = λ[i] >= 0 ? 1 : -1
+				λp = w[:, l-s] |> w2λ
+				Λ = 0.5*(λ+λp)
+				Rm = w[:, l] |> w2R
+				Rp = w[:, l-s] |> w2R
+				R = 0.5*(Rm+Rp)
+				Lm = w[:, l] |> w2L
+				Lp = w[:, l-s] |> w2L
+				L = 0.5*(Lm+Lp)
+				for j = 1:3
+					a = Λ[i]*R[k, i]*L[i, j]
+					Σ += s*a*(w[j, l] - w[j, l-s])
+					Σ += 0.5s*a* (1 - a*C) *
+					( minmod(w[j, l]-w[j, l-1], w[j, l+1]-w[j,l]) -
+					 minmod(w[j,l-s]-w[j,l-s-1], w[j,l-s+1]-w[j,l-s]) )
+				end
+			end
+			wp[k, l] =w[k, l] - C*Σ
+		end
+	end
+end
+
+function NND(wp::Matrix, w::Matrix, C::AbstractFloat)
+for l in 3:size(w, 2)-2
 	F = w[:, l] |> w2F
-	wp[:, l] .= w[:, l] - 0.5C*(Fp - Fm) +
-	0.5C^2*(Ap*(Fp-F) - Am * (F-Fm))
+	Fp1 = w[:, l+1] |> w2F
+	Fm1 = w[:, l-1] |> w2F
+	Fp2 = w[:, l+2] |> w2F
+	Fpp = F + 0.5Minmod(F - Fm1, Fp1 - F)
+	Fpm = F - 0.5Minmod(Fp1 - F, Fp2 - Fp1)
+	Fp = 0.5(Fpp + Fpm)
+	F = w[:, l-1] |> w2F
+	Fp1 = w[:, l-1+1] |> w2F
+	Fm1 = w[:, l-1-1] |> w2F
+	Fp2 = w[:, l-1+2] |> w2F
+	Fmp = F + 0.5Minmod(F - Fm1, Fp1 - F)
+	Fmm = F - 0.5Minmod(Fp1 - F, Fp2 - Fp1)
+	Fm = 0.5(Fmp + Fmm)
+	wp[:, l] = w[:, l] - C * (Fp - Fm)
 end
 end
 
@@ -342,36 +495,6 @@ function limiter0(wp::Matrix, w::Matrix, C::AbstractFloat)
 end
 
 
-function limiter(wp::Matrix, w::Matrix, C::AbstractFloat)
-	for l in 3:size(w, 2)-2
-		λ= w[:, l] |> w2λ
-		# R = w[:, l] |> w2R
-		# L = w[:, l] |> w2L
-		for k = 1:3
-			Σ=0.0
-			for i = 1:3
-				s = λ[i] >= 0 ? 1 : -1
-				λp = w[:, l-s] |> w2λ
-				Λ = 0.5*(λ+λp)
-				Rm = w[:, l] |> w2R
-				Rp = w[:, l-s] |> w2R
-				R = 0.5*(Rm+Rp)
-				Lm = w[:, l] |> w2L
-				Lp = w[:, l-s] |> w2L
-				L = 0.5*(Lm+Lp)
-				for j = 1:3
-					a = Λ[i]*R[k, i]*L[i, j]
-					Σ += s*a*(w[j, l] - w[j, l-s])
-					Σ += 0.5s*a* (1 - a*C) *
-					( minmod(w[j, l]-w[j, l-1], w[j, l+1]-w[j,l]) -
-					 minmod(w[j,l-s]-w[j,l-s-1], w[j,l-s+1]-w[j,l-s]) )
-				end
-			end
-			wp[k, l] =w[k, l] - C*Σ
-		end
-	end
-end
-
 function limiter00(wp::Matrix, w::Matrix, C::AbstractFloat)
 	for l in 3:size(w, 2)-2
 		λ = w[:, l] |> w2λ
@@ -528,15 +651,18 @@ function problem(C::AbstractFloat, f::Function, nx::Int = 261)
 	c=Cells(step=Δx, init=init)
 	title = f |> f2title
 	fig, ax=plt.subplots(3,1, figsize=(12,13))
+
 	fig.suptitle("t = "*string(t)*"    "*"C = "*C_str*"    "*title, fontsize=16)
 	ax[1].plot(c.x, c.u[1, :], "-.k", linewidth=0.2, label=L"$\rho$(初始值)")
 	ax[3].plot(c.x, c.u[2, :], "-.k", linewidth=0.2, label=L"$m$(初始值)")
 	ax[2].plot(c.x, c.u[3, :], "-.k", linewidth=0.2, label=L"$E$(初始值)")
 
 	flg=true # flag
-	for _ = 1:round(Int, t/Δt)
+	# for _ = 1:round(Int, t/Δt)
+	for _ = 1:round(Int, 15)
 		flg=update!(c, flg, f, C)
 	end
+
 	w=current(c, flg)
 	tw=similar(w)
 	true_sol(c.x, tw, t)
@@ -642,6 +768,9 @@ problem(0.05, limiter, 133)
 plt.show()
 
 problem(0.5, lax_wendroff)
+plt.show()
+
+problem(0.18, NND)
 plt.show()
 
 
